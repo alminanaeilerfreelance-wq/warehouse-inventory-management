@@ -24,8 +24,7 @@ import AdminConfirmDialog from '../../components/Common/AdminConfirmDialog';
 import { getCRUD } from '../../utils/api';
 
 const api = getCRUD('types');
-const MODULES = ['inventory', 'invoice', 'expense', 'general'];
-const EMPTY_FORM = { name: '', description: '', module: 'general' };
+const EMPTY_FORM = { name: '', description: '' };
 
 export default function TypesPage() {
   const { enqueueSnackbar } = useSnackbar();
@@ -65,7 +64,7 @@ export default function TypesPage() {
 
   const openAdd = () => { setFormData(EMPTY_FORM); setEditId(null); setFormOpen(true); };
   const openEdit = (row) => {
-    setFormData({ name: row.name || '', description: row.description || '', module: row.module || 'general' });
+    setFormData({ name: row.name || '', description: row.description || '' });
     setEditId(row._id || row.id);
     setFormOpen(true);
   };
@@ -108,11 +107,6 @@ export default function TypesPage() {
 
   const columns = [
     { field: 'name', headerName: 'Name' },
-    {
-      field: 'module',
-      headerName: 'Module',
-      renderCell: ({ value }) => value ? value.charAt(0).toUpperCase() + value.slice(1) : '—',
-    },
     { field: 'description', headerName: 'Description' },
     {
       field: 'actions',
@@ -172,14 +166,6 @@ export default function TypesPage() {
         <Stack spacing={2} mt={1}>
           <TextField label="Name" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} fullWidth required />
           <TextField label="Description" value={formData.description} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} fullWidth multiline rows={2} />
-          <FormControl fullWidth>
-            <InputLabel>Module</InputLabel>
-            <Select value={formData.module} label="Module" onChange={(e) => setFormData((p) => ({ ...p, module: e.target.value }))}>
-              {MODULES.map((m) => (
-                <MenuItem key={m} value={m}>{m.charAt(0).toUpperCase() + m.slice(1)}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
         </Stack>
       </FormDialog>
 

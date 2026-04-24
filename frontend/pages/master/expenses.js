@@ -26,7 +26,7 @@ import AdminConfirmDialog from '../../components/Common/AdminConfirmDialog';
 import { getCRUD } from '../../utils/api';
 
 const expensesApi = getCRUD('expenses');
-const EMPTY_FORM = { name: '', amount: '', categoryId: '', date: '', description: '', status: 'Active' };
+const EMPTY_FORM = { name: '', amount: '', storeBranchId: '', date: '', description: '' };
 
 export default function ExpensesPage() {
   const { enqueueSnackbar } = useSnackbar();
@@ -38,7 +38,7 @@ export default function ExpensesPage() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
 
-  const [categories, setCategories] = useState([]);
+  const [storeBranches, setStoreBranches] = useState([]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [formData, setFormData] = useState(EMPTY_FORM);
@@ -51,9 +51,9 @@ export default function ExpensesPage() {
 
   const fetchOptions = useCallback(async () => {
     try {
-      const res = await api.get('/categories');
+      const res = await api.get('/store-branches');
       const data = res.data.data || res.data;
-      setCategories(Array.isArray(data) ? data : data.items || data.categories || []);
+      setStoreBranches(Array.isArray(data) ? data : data.items || data.storeBranches || []);
     } catch { /* silently fail */ }
   }, []);
 
@@ -80,19 +80,18 @@ export default function ExpensesPage() {
     setFormData({
       name: row.name || '',
       amount: row.amount || '',
-      categoryId: row.categoryId || row.category?._id || row.category?.id || '',
+      storeBranchId: row.storeBranchId || row.storeBranch?._id || row.storeBranch?.id || '',
       date: row.date ? row.date.substring(0, 10) : '',
       description: row.description || '',
-      status: row.status || 'Active',
     });
     setEditId(row._id || row.id);
     setFormOpen(true);
   };
 
-  const getCategoryName = (row) => {
-    if (row.category?.name) return row.category.name;
-    const cat = categories.find((c) => (c._id || c.id) === (row.categoryId || row.category));
-    return cat?.name || '—';
+  const getStoreBranchName = (row) => {
+    if (row.storeBranch?.name) return row.storeBranch.name;
+    const sb = storeBranches.find((s) => (s._id || s.id) === (row.storeBranchId || row.storeBranch));
+    return sb?.name || '—';
   };
 
   const handleFormSubmit = () => {
@@ -136,7 +135,7 @@ export default function ExpensesPage() {
   const columns = [
     { field: 'name', headerName: 'Name' },
     { field: 'amount', headerName: 'Amount', renderCell: ({ value }) => `$${fmt(value)}` },
-    { field: 'category', headerName: 'Category', renderCell: ({ row }) => getCategoryName(row) },
+    { field: 'storeBranch', headerName: 'Store Branch', renderCell: ({ row }) => getStoreBranchName(row) },
     { field: 'date', headerName: 'Date', renderCell: ({ value }) => value ? dayjs(value).format('MMM DD, YYYY') : '—' },
     {
       field: 'actions',
@@ -197,23 +196,16 @@ export default function ExpensesPage() {
           <TextField label="Name" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} fullWidth required />
           <TextField label="Amount" type="number" value={formData.amount} onChange={(e) => setFormData((p) => ({ ...p, amount: e.target.value }))} fullWidth inputProps={{ min: 0, step: 0.01 }} />
           <FormControl fullWidth>
-            <InputLabel>Category</InputLabel>
-            <Select value={formData.categoryId} label="Category" onChange={(e) => setFormData((p) => ({ ...p, categoryId: e.target.value }))}>
+            <InputLabel>Store Branch</InputLabel>
+            <Select value={formData.storeBranchId} label="Store Branch" onChange={(e) => setFormData((p) => ({ ...p, storeBranchId: e.target.value }))}>
               <MenuItem value=""><em>None</em></MenuItem>
-              {categories.map((c) => (
-                <MenuItem key={c._id || c.id} value={c._id || c.id}>{c.name}</MenuItem>
+              {storeBranches.map((s) => (
+                <MenuItem key={s._id || s.id} value={s._id || s.id}>{s.name}</MenuItem>
               ))}
             </Select>
           </FormControl>
           <TextField label="Date" type="date" value={formData.date} onChange={(e) => setFormData((p) => ({ ...p, date: e.target.value }))} fullWidth InputLabelProps={{ shrink: true }} />
           <TextField label="Description" value={formData.description} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} fullWidth multiline rows={2} />
-          <FormControl fullWidth>
-            <InputLabel>Status</InputLabel>
-            <Select value={formData.status} label="Status" onChange={(e) => setFormData((p) => ({ ...p, status: e.target.value }))}>
-              <MenuItem value="Active">Active</MenuItem>
-              <MenuItem value="Inactive">Inactive</MenuItem>
-            </Select>
-          </FormControl>
         </Stack>
       </FormDialog>
 

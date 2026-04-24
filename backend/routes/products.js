@@ -4,18 +4,37 @@ const ProductName = require('../models/ProductName');
 const { protect, adminOnly } = require('../middleware/auth');
 
 // GET all with search + pagination
+// router.get('/', protect, async (req, res) => {
+//   try {
+//     const { search = '', page = 1, limit = 10 } = req.query;
+//     const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+//     const total = await ProductName.countDocuments(query);
+//     const items = await ProductName.find(query)
+//       .populate('category')
+//       .populate('brand')
+//       .sort({ createdAt: -1 })
+//       .skip((page - 1) * limit)
+//       .limit(Number(limit));
+//     res.json({ items, total, page: Number(page), pages: Math.ceil(total / limit) });
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// });
+
 router.get('/', protect, async (req, res) => {
   try {
     const { search = '', page = 1, limit = 10 } = req.query;
+    const pagenumber = Number(page) || 1;
+    const pagesize = Number(limit) || 10;
     const query = search ? { name: { $regex: search, $options: 'i' } } : {};
     const total = await ProductName.countDocuments(query);
     const items = await ProductName.find(query)
-      .populate('category')
-      .populate('brand')
+      .populate('category', 'name')
+      .populate('brand', 'name')
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
-    res.json({ items, total, page: Number(page), pages: Math.ceil(total / limit) });
+      .skip((pagenumber - 1) * pagesize)
+      .limit(pagesize);
+    res.json({ items, total, page: pagenumber, pages: Math.ceil(total / pagesize) });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -33,13 +52,34 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // POST create
+// router.post('/', protect, adminOnly, async (req, res) => {
+//   try {
+//     const item = await ProductName.create(req.body);
+//     res.status(201).json(item);
+//   } catch (err) {
+//     res.status(400).json({ message: err.message });
+//   }
+// });
+
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const item = await ProductName.create(req.body);
-    res.status(201).json(item);
+    const { name, categoryId, brandId, description } = req.body;
+    if (!name || !categoryId || !brandId) {
+      return res.status(400).json({ message: 'Name, categoryId and brandId are required' });
+    }
+    const item = await ProductName.create({
+      name,
+      category: categoryId,
+      brand: brandId,
+      description,
+    });
+    const populatedItem = await ProductName.findById(item._id).populate('category').populate('brand');
+
+
+    res.status(201).json(populatedItem);
   } catch (err) {
     res.status(400).json({ message: err.message });
-  }
+  } 
 });
 
 // PUT update

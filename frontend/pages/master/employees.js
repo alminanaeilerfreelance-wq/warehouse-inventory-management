@@ -136,6 +136,7 @@ export default function EmployeesPage() {
     { field: 'name', headerName: 'Name' },
     { field: 'position', headerName: 'Position' },
     { field: 'department', headerName: 'Department' },
+    
     {
       field: 'status',
       headerName: 'Status',

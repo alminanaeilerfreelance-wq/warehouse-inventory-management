@@ -17,6 +17,7 @@ router.get('/', protect, async (req, res) => {
       : {};
     const total = await Expense.countDocuments(query);
     const items = await Expense.find(query)
+      .populate('storeBranch')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
@@ -29,7 +30,7 @@ router.get('/', protect, async (req, res) => {
 // GET single
 router.get('/:id', protect, async (req, res) => {
   try {
-    const item = await Expense.findById(req.params.id);
+    const item = await Expense.findById(req.params.id).populate('storeBranch');
     if (!item) return res.status(404).json({ message: 'Not found' });
     res.json(item);
   } catch (err) {
@@ -40,8 +41,13 @@ router.get('/:id', protect, async (req, res) => {
 // POST create
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Expense.create(req.body);
-    res.status(201).json(item);
+    const { name, amount, date, category, storeBranchId } = req.body;
+    if (!name) return res.status(400).json({ message: 'Name is required' });
+    
+    const expenseData = { name, amount, date, category, storeBranch: storeBranchId || null };
+    const item = await Expense.create(expenseData);
+    const populated = await item.populate('storeBranch');
+    res.status(201).json(populated);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -50,7 +56,11 @@ router.post('/', protect, adminOnly, async (req, res) => {
 // PUT update
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Expense.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const { name, description, amount, date, category, storeBranchId } = req.body;
+    const updateData = { name, description, amount, date, category, storeBranch: storeBranchId || null };
+    
+    const item = await Expense.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true })
+      .populate('storeBranch');
     if (!item) return res.status(404).json({ message: 'Not found' });
     res.json(item);
   } catch (err) {

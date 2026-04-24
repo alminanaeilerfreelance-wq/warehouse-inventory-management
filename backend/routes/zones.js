@@ -34,8 +34,23 @@ router.get('/:id', protect, async (req, res) => {
 // POST create
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Zone.create(req.body);
-    res.status(201).json(item);
+    const { name, warehouseId, description } = req.body;
+
+    // VALIDATION
+    if (!name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    // Create zone data with proper field mapping
+    const zoneData = {
+      name,
+      description,
+      warehouse: warehouseId || null,
+    };
+
+    const item = await Zone.create(zoneData);
+    const populated = await item.populate('warehouse');
+    res.status(201).json(populated);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -44,7 +59,16 @@ router.post('/', protect, adminOnly, async (req, res) => {
 // PUT update
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Zone.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+    const { name, warehouseId, description } = req.body;
+
+    // Create update data with proper field mapping
+    const updateData = {
+      name,
+      description,
+      warehouse: warehouseId || null,
+    };
+
+    const item = await Zone.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true })
       .populate('warehouse');
     if (!item) return res.status(404).json({ message: 'Not found' });
     res.json(item);

@@ -34,8 +34,13 @@ router.get('/:id', protect, async (req, res) => {
 // POST create
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Rack.create(req.body);
-    res.status(201).json(item);
+    const { name, binId, description } = req.body;
+    if (!name) return res.status(400).json({ message: 'Name is required' });
+    
+    const rackData = { name, description, bin: binId || null };
+    const item = await Rack.create(rackData);
+    const populated = await item.populate('bin');
+    res.status(201).json(populated);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -44,7 +49,10 @@ router.post('/', protect, adminOnly, async (req, res) => {
 // PUT update
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Rack.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+    const { name, binId, description } = req.body;
+    const updateData = { name, description, bin: binId || null };
+    
+    const item = await Rack.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true })
       .populate('bin');
     if (!item) return res.status(404).json({ message: 'Not found' });
     res.json(item);

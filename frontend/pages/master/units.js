@@ -20,7 +20,7 @@ import AdminConfirmDialog from '../../components/Common/AdminConfirmDialog';
 import { getCRUD } from '../../utils/api';
 
 const api = getCRUD('units');
-const EMPTY_FORM = { name: '', abbreviation: '', description: '' };
+const EMPTY_FORM = { name: '', abbreviation: '' };
 
 export default function UnitsPage() {
   const { enqueueSnackbar } = useSnackbar();
@@ -60,7 +60,7 @@ export default function UnitsPage() {
 
   const openAdd = () => { setFormData(EMPTY_FORM); setEditId(null); setFormOpen(true); };
   const openEdit = (row) => {
-    setFormData({ name: row.name || '', abbreviation: row.abbreviation || '', description: row.description || '' });
+    setFormData({ name: row.name || '', abbreviation: row.abbreviation || '' });
     setEditId(row._id || row.id);
     setFormOpen(true);
   };
@@ -104,7 +104,6 @@ export default function UnitsPage() {
   const columns = [
     { field: 'name', headerName: 'Name' },
     { field: 'abbreviation', headerName: 'Abbreviation' },
-    { field: 'description', headerName: 'Description' },
     {
       field: 'actions',
       headerName: 'Actions',
@@ -163,7 +162,6 @@ export default function UnitsPage() {
         <Stack spacing={2} mt={1}>
           <TextField label="Name" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} fullWidth required />
           <TextField label="Abbreviation" value={formData.abbreviation} onChange={(e) => setFormData((p) => ({ ...p, abbreviation: e.target.value }))} fullWidth />
-          <TextField label="Description" value={formData.description} onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))} fullWidth multiline rows={2} />
         </Stack>
       </FormDialog>
 

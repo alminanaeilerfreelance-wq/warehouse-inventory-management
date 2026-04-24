@@ -25,7 +25,7 @@ import AdminConfirmDialog from '../../components/Common/AdminConfirmDialog';
 import { getCRUD } from '../../utils/api';
 
 const locationsApi = getCRUD('locations');
-const EMPTY_FORM = { name: '', warehouseId: '', zoneId: '', binId: '', rackId: '', description: '' };
+const EMPTY_FORM = { name: '', rackId: '', description: '' };
 
 export default function LocationsPage() {
   const { enqueueSnackbar } = useSnackbar();
@@ -37,9 +37,6 @@ export default function LocationsPage() {
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
 
-  const [warehouses, setWarehouses] = useState([]);
-  const [zones, setZones] = useState([]);
-  const [bins, setBins] = useState([]);
   const [racks, setRacks] = useState([]);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -53,17 +50,9 @@ export default function LocationsPage() {
 
   const fetchOptions = useCallback(async () => {
     try {
-      const [whRes, zRes, bRes, rRes] = await Promise.all([
-        api.get('/warehouses'),
-        api.get('/zones'),
-        api.get('/bins'),
-        api.get('/racks'),
-      ]);
-      const toArr = (res, key) => { const d = res.data.data || res.data; return Array.isArray(d) ? d : d.items || d[key] || []; };
-      setWarehouses(toArr(whRes, 'warehouses'));
-      setZones(toArr(zRes, 'zones'));
-      setBins(toArr(bRes, 'bins'));
-      setRacks(toArr(rRes, 'racks'));
+      const rRes = await api.get('/racks');
+      const d = rRes.data.data || rRes.data;
+      setRacks(Array.isArray(d) ? d : d.items || d.racks || []);
     } catch { /* silently fail */ }
   }, []);
 
@@ -89,9 +78,6 @@ export default function LocationsPage() {
   const openEdit = (row) => {
     setFormData({
       name: row.name || '',
-      warehouseId: row.warehouseId || row.warehouse?._id || row.warehouse?.id || '',
-      zoneId: row.zoneId || row.zone?._id || row.zone?.id || '',
-      binId: row.binId || row.bin?._id || row.bin?.id || '',
       rackId: row.rackId || row.rack?._id || row.rack?.id || '',
       description: row.description || '',
     });
@@ -145,8 +131,7 @@ export default function LocationsPage() {
 
   const columns = [
     { field: 'name', headerName: 'Name' },
-    { field: 'warehouse', headerName: 'Warehouse', renderCell: ({ row }) => getName(warehouses, row, 'warehouseId', 'warehouse') },
-    { field: 'zone', headerName: 'Zone', renderCell: ({ row }) => getName(zones, row, 'zoneId', 'zone') },
+    { field: 'rack', headerName: 'Rack', renderCell: ({ row }) => getName(racks, row, 'rackId', 'rack') },
     {
       field: 'actions',
       headerName: 'Actions',
@@ -205,27 +190,6 @@ export default function LocationsPage() {
       >
         <Stack spacing={2} mt={1}>
           <TextField label="Name" value={formData.name} onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))} fullWidth required />
-          <FormControl fullWidth>
-            <InputLabel>Warehouse</InputLabel>
-            <Select value={formData.warehouseId} label="Warehouse" onChange={(e) => setFormData((p) => ({ ...p, warehouseId: e.target.value }))}>
-              <MenuItem value=""><em>None</em></MenuItem>
-              {warehouses.map((w) => <MenuItem key={w._id || w.id} value={w._id || w.id}>{w.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth>
-            <InputLabel>Zone</InputLabel>
-            <Select value={formData.zoneId} label="Zone" onChange={(e) => setFormData((p) => ({ ...p, zoneId: e.target.value }))}>
-              <MenuItem value=""><em>None</em></MenuItem>
-              {zones.map((z) => <MenuItem key={z._id || z.id} value={z._id || z.id}>{z.name}</MenuItem>)}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth>
-            <InputLabel>Bin</InputLabel>
-            <Select value={formData.binId} label="Bin" onChange={(e) => setFormData((p) => ({ ...p, binId: e.target.value }))}>
-              <MenuItem value=""><em>None</em></MenuItem>
-              {bins.map((b) => <MenuItem key={b._id || b.id} value={b._id || b.id}>{b.name}</MenuItem>)}
-            </Select>
-          </FormControl>
           <FormControl fullWidth>
             <InputLabel>Rack</InputLabel>
             <Select value={formData.rackId} label="Rack" onChange={(e) => setFormData((p) => ({ ...p, rackId: e.target.value }))}>

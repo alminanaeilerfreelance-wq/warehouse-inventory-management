@@ -26,7 +26,7 @@ import AdminConfirmDialog from '../../components/Common/AdminConfirmDialog';
 import { getCRUD } from '../../utils/api';
 
 const servicesApi = getCRUD('services');
-const EMPTY_FORM = { name: '', description: '', price: '', unitId: '', status: 'Active' };
+const EMPTY_FORM = { name: '', description: '', price: '', unitId: '' };
 
 export default function ServicesPage() {
   const { enqueueSnackbar } = useSnackbar();
@@ -82,7 +82,6 @@ export default function ServicesPage() {
       description: row.description || '',
       price: row.price || '',
       unitId: row.unitId || row.unit?._id || row.unit?.id || '',
-      status: row.status || 'Active',
     });
     setEditId(row._id || row.id);
     setFormOpen(true);
@@ -136,13 +135,6 @@ export default function ServicesPage() {
     { field: 'name', headerName: 'Name' },
     { field: 'price', headerName: 'Price', renderCell: ({ value }) => `$${fmt(value)}` },
     { field: 'unit', headerName: 'Unit', renderCell: ({ row }) => getUnitName(row) },
-    {
-      field: 'status',
-      headerName: 'Status',
-      renderCell: ({ value }) => (
-        <Chip label={value || 'Active'} size="small" color={value === 'Active' ? 'success' : 'default'} />
-      ),
-    },
     {
       field: 'actions',
       headerName: 'Actions',
@@ -209,13 +201,6 @@ export default function ServicesPage() {
               {units.map((u) => (
                 <MenuItem key={u._id || u.id} value={u._id || u.id}>{u.name}</MenuItem>
               ))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth>
-            <InputLabel>Status</InputLabel>
-            <Select value={formData.status} label="Status" onChange={(e) => setFormData((p) => ({ ...p, status: e.target.value }))}>
-              <MenuItem value="Active">Active</MenuItem>
-              <MenuItem value="Inactive">Inactive</MenuItem>
             </Select>
           </FormControl>
         </Stack>

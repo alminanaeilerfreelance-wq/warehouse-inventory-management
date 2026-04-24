@@ -3,6 +3,17 @@ const withPWA = require('next-pwa')({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
+  buildExcludes: ['manifest.json'],
+  runtimeCaching: [
+    {
+      urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
+      handler: 'CacheFirst',
+    },
+    {
+      urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
+      handler: 'CacheFirst',
+    },
+  ],
 });
 
 const nextConfig = withPWA({

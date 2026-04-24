@@ -2,14 +2,22 @@ const mongoose = require('mongoose');
 
 const employeeSchema = new mongoose.Schema(
   {
-    firstName: {
+    employeeId: {
+      type: String,
+      unique: true,
+      trim: true,
+    },
+    name: {
       type: String,
       required: true,
       trim: true,
     },
+    firstName: {
+      type: String,
+      trim: true,
+    },
     lastName: {
       type: String,
-      required: true,
       trim: true,
     },
     email: {
@@ -38,6 +46,11 @@ const employeeSchema = new mongoose.Schema(
     },
     hireDate: {
       type: Date,
+    },
+    status: {
+      type: String,
+      enum: ['Active', 'Inactive'],
+      default: 'Active',
     },
     isActive: {
       type: Boolean,

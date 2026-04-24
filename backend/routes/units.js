@@ -33,7 +33,10 @@ router.get('/:id', protect, async (req, res) => {
 // POST create
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Unit.create(req.body);
+    const { name, abbreviation } = req.body;
+    if (!name) return res.status(400).json({ message: 'Name is required' });
+    
+    const item = await Unit.create({ name, abbreviation });
     res.status(201).json(item);
   } catch (err) {
     res.status(400).json({ message: err.message });

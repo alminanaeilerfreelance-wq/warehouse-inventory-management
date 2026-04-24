@@ -10,7 +10,7 @@ router.get('/', protect, async (req, res) => {
     const query = search ? { name: { $regex: search, $options: 'i' } } : {};
     const total = await Location.countDocuments(query);
     const items = await Location.find(query)
-      .populate('warehouse')
+      .populate('rack')
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(Number(limit));
@@ -23,7 +23,7 @@ router.get('/', protect, async (req, res) => {
 // GET single
 router.get('/:id', protect, async (req, res) => {
   try {
-    const item = await Location.findById(req.params.id).populate('warehouse');
+    const item = await Location.findById(req.params.id).populate('rack');
     if (!item) return res.status(404).json({ message: 'Not found' });
     res.json(item);
   } catch (err) {
@@ -34,8 +34,13 @@ router.get('/:id', protect, async (req, res) => {
 // POST create
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Location.create(req.body);
-    res.status(201).json(item);
+    const { name, rackId, description } = req.body;
+    if (!name) return res.status(400).json({ message: 'Name is required' });
+    
+    const locationData = { name, description, rack: rackId || null };
+    const item = await Location.create(locationData);
+    const populated = await item.populate('rack');
+    res.status(201).json(populated);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -44,8 +49,11 @@ router.post('/', protect, adminOnly, async (req, res) => {
 // PUT update
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Location.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
-      .populate('warehouse');
+    const { name, rackId, description } = req.body;
+    const updateData = { name, description, rack: rackId || null };
+    
+    const item = await Location.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true })
+      .populate('rack');
     if (!item) return res.status(404).json({ message: 'Not found' });
     res.json(item);
   } catch (err) {

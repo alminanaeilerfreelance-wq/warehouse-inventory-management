@@ -41,9 +41,58 @@ router.get('/:id', protect, async (req, res) => {
 // POST create
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
-    const item = await Employee.create(req.body);
-    res.status(201).json(item);
+    const {
+      employeeId,
+      name,
+      position,
+      department,
+      email,
+      contact,
+      address,
+      hireDate,
+      salary,
+      status,
+    } = req.body;
+
+    console.log("🔥 CREATE EMPLOYEE BODY:", req.body);
+
+    // VALIDATION
+    if (!name) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    // OPTIONAL: auto-generate employeeId
+    let finalEmployeeId = employeeId;
+
+    if (!finalEmployeeId) {
+      const count = await require('../models/Employee').countDocuments();
+      finalEmployeeId = `EMP-${String(count + 1).padStart(4, '0')}`;
+    }
+
+    // ✅ CHECK DUPLICATE
+    const exists = await Employee.findOne({ employeeId: finalEmployeeId });
+
+    if (exists) {
+      return res.status(400).json({ message: "Employee ID already exists" });
+    }
+
+    // ✅ CREATE
+    const employee = await Employee.create({
+      employeeId: finalEmployeeId,
+      name,
+      position,
+      department,
+      email,
+      contact,
+      address,
+      hireDate,
+      salary,
+      status: status || "Active",
+    });
+
+    res.status(201).json(employee);
   } catch (err) {
+    console.error("❌ CREATE EMPLOYEE ERROR:", err);
     res.status(400).json({ message: err.message });
   }
 });
