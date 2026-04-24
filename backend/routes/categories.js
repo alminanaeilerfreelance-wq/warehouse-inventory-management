@@ -6,8 +6,14 @@ const { protect, adminOnly } = require('../middleware/auth');
 // GET all with search + pagination
 router.get('/', protect, async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 10 } = req.query;
+    const { search = '', page = 1, limit = 10, noPagination } = req.query;
     const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+    
+    if (noPagination) {
+      const items = await Category.find(query).sort({ createdAt: -1 });
+      return res.json({ items, total: items.length });
+    }
+    
     const total = await Category.countDocuments(query);
     const items = await Category.find(query)
       .sort({ createdAt: -1 })

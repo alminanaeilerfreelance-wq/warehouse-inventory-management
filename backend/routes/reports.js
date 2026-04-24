@@ -235,4 +235,31 @@ router.get('/export/:type', protect, async (req, res) => {
   }
 });
 
+// GET /api/reports/stock-status — stock status report
+router.get('/stock-status', protect, async (req, res) => {
+  try {
+    const Inventory = require('../models/Inventory');
+    const { warehouse } = req.query;
+    const match = {};
+    if (warehouse) match.warehouse = require('mongoose').Types.ObjectId.createFromHexString(warehouse);
+
+    const items = await Inventory.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: '$stockStatus',
+          count: { $sum: 1 },
+          totalQuantity: { $sum: '$quantity' },
+          totalCost: { $sum: '$totalCost' },
+        },
+      },
+      { $sort: { '_id': 1 } },
+    ]);
+
+    res.json({ items });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

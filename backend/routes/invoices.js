@@ -110,10 +110,15 @@ router.post('/', protect, async (req, res) => {
   try {
     const {
       invoiceType,
+      customerId,
       customer,
+      supplierId,
       supplier,
+      employeeId,
       employee,
+      storeBranchId,
       storeBranch,
+      warehouseId,
       warehouse,
       items = [],
       discount = 0,
@@ -142,11 +147,11 @@ router.post('/', protect, async (req, res) => {
     const invoice = await Invoice.create({
       invoiceNo,
       invoiceType,
-      customer,
-      supplier,
-      employee,
-      storeBranch,
-      warehouse,
+      customer: customerId || customer,
+      supplier: supplierId || supplier,
+      employee: employeeId || employee,
+      storeBranch: storeBranchId || storeBranch,
+      warehouse: warehouseId || warehouse,
       items,
       subtotal,
       discount,
@@ -200,10 +205,27 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
       discountType,
       vatType,
       vatRate,
+      customerId,
+      customer,
+      supplierId,
+      supplier,
+      employeeId,
+      employee,
+      storeBranchId,
+      storeBranch,
+      warehouseId,
+      warehouse,
       ...rest
     } = req.body;
 
     const updateData = { ...rest };
+
+    // Field mapping
+    if (customerId || customer) updateData.customer = customerId || customer;
+    if (supplierId || supplier) updateData.supplier = supplierId || supplier;
+    if (employeeId || employee) updateData.employee = employeeId || employee;
+    if (storeBranchId || storeBranch) updateData.storeBranch = storeBranchId || storeBranch;
+    if (warehouseId || warehouse) updateData.warehouse = warehouseId || warehouse;
 
     if (items) {
       const itemsWithSubtotals = items.map((item) => ({

@@ -58,50 +58,38 @@ router.post('/', protect, async (req, res) => {
     const { type, items, notes } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'Items are required' });
+      return res.status(400).json({ message: 'items array is required' });
     }
+
+    if (!type || !['increment', 'decrement'].includes(type)) {
+      return res.status(400).json({ message: 'type must be increment or decrement' });
+    }
+
+    // Map inventory IDs if using old format
+    const processedItems = items.map(item => ({
+      ...item,
+      inventory: item.inventoryId || item.inventory
+    }));
 
     const invoiceNo = generateInvoiceNo();
-
-    // Process each item — adjust inventory quantity
-    for (const cartItem of items) {
-      const { inventory: inventoryId, quantity } = cartItem;
-      const qty = Number(quantity) || 0;
-
-      const inventoryDoc = await Inventory.findById(inventoryId);
-      if (!inventoryDoc) continue;
-
-      if (type === 'increment') {
-        inventoryDoc.quantity = (inventoryDoc.quantity || 0) + qty;
-      } else if (type === 'decrement') {
-        inventoryDoc.quantity = Math.max(0, (inventoryDoc.quantity || 0) - qty);
-      }
-
-      const cost = inventoryDoc.cost || 0;
-      const srp = inventoryDoc.srp || 0;
-      inventoryDoc.totalCost = cost * inventoryDoc.quantity;
-      inventoryDoc.totalSrp = srp * inventoryDoc.quantity;
-      inventoryDoc.stockStatus = updateStockStatus(inventoryDoc.quantity, inventoryDoc.lowStockThreshold || 10);
-
-      await inventoryDoc.save();
-    }
 
     const adjustment = await InventoryAdjustment.create({
       invoiceNo,
       type,
-      items,
+      items: processedItems,
       notes,
       adjustedBy: req.user._id,
     });
 
-    // Generate QR for the adjustment
-    try {
-      const { generateQRCode } = require('../utils/qrCode');
-      const qr = await generateQRCode({ invoiceNo: adjustment.invoiceNo, type: 'adjustment', id: adjustment._id });
-      adjustment.qrCode = qr;
-      await adjustment.save();
-    } catch (qrErr) {
-      console.error('[QR] Adjustment QR failed:', qrErr.message);
+    // Update inventory quantities
+    for (const item of processedItems) {
+      const inv = await Inventory.findById(item.inventory);
+      if (!inv) continue;
+
+      const newQty = type === 'increment' ? inv.quantity + item.quantity : inv.quantity - item.quantity;
+      inv.quantity = Math.max(0, newQty);
+      inv.stockStatus = updateStockStatus(inv.quantity, inv.lowStockThreshold);
+      await inv.save();
     }
 
     const populated = await InventoryAdjustment.findById(adjustment._id)

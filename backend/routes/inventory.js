@@ -176,6 +176,20 @@ router.post('/', protect, adminOnly, async (req, res) => {
   try {
     const data = { ...req.body };
 
+    // Field mapping: convert xxxId to field names
+    if (data.brandId) data.brand = data.brandId;
+    if (data.designId) data.design = data.designId;
+    if (data.supplierId) data.supplier = data.supplierId;
+    if (data.categoryId) data.category = data.categoryId;
+    if (data.productId) data.productName = data.productId;
+    if (data.zoneId) data.zone = data.zoneId;
+    if (data.binId) data.bin = data.binId;
+    if (data.rackId) data.rack = data.rackId;
+    if (data.locationId) data.location = data.locationId;
+    if (data.warehouseId) data.warehouse = data.warehouseId;
+    if (data.typeId) data.type = data.typeId;
+    if (data.unitId) data.unit = data.unitId;
+
     const cost = Number(data.cost) || 0;
     const srp = Number(data.srp) || 0;
     const quantity = Number(data.quantity) || 0;
@@ -197,6 +211,20 @@ router.post('/', protect, adminOnly, async (req, res) => {
 router.put('/:id', protect, adminOnly, async (req, res) => {
   try {
     const data = { ...req.body };
+
+    // Field mapping: convert xxxId to field names
+    if (data.brandId) data.brand = data.brandId;
+    if (data.designId) data.design = data.designId;
+    if (data.supplierId) data.supplier = data.supplierId;
+    if (data.categoryId) data.category = data.categoryId;
+    if (data.productId) data.productName = data.productId;
+    if (data.zoneId) data.zone = data.zoneId;
+    if (data.binId) data.bin = data.binId;
+    if (data.rackId) data.rack = data.rackId;
+    if (data.locationId) data.location = data.locationId;
+    if (data.warehouseId) data.warehouse = data.warehouseId;
+    if (data.typeId) data.type = data.typeId;
+    if (data.unitId) data.unit = data.unitId;
 
     const existing = await Inventory.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Not found' });

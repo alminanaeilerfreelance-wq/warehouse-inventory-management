@@ -17,7 +17,7 @@ router.get('/', protect, adminOnly, async (req, res) => {
     const items = await AuditLog.find(query)
       .populate('user', 'username customerName')
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
+      .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit));
 
     res.json({ items, total, page: Number(page), pages: Math.ceil(total / limit) });

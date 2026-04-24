@@ -70,6 +70,9 @@ const EMPTY_FORM = {
   srp: '',
   quantity: '',
   vatType: 'exclusive',
+  sku: '',
+  barcode: '',
+  lowStockThreshold: '',
 };
 
 const LOOKUP_RESOURCES = [
@@ -108,7 +111,10 @@ export default function InventoryPage() {
   const fetchLookups = useCallback(async () => {
     try {
       const results = await Promise.all(
-        LOOKUP_RESOURCES.map((r) => api.get(`/${r}`).catch(() => ({ data: [] })))
+        LOOKUP_RESOURCES.map((r) => 
+          api.get(`/${r}`, { params: { noPagination: true } })
+            .catch(() => ({ data: { items: [] } }))
+        )
       );
       const newLookups = {};
       LOOKUP_RESOURCES.forEach((r, i) => {
@@ -165,6 +171,9 @@ export default function InventoryPage() {
       srp: row.srp ?? '',
       quantity: row.quantity ?? '',
       vatType: row.vatType || 'exclusive',
+      sku: row.sku ?? '',
+      barcode: row.barcode ?? '',
+      lowStockThreshold: row.lowStockThreshold ?? '',
     });
     setEditId(row._id || row.id);
     setFormOpen(true);
@@ -196,6 +205,9 @@ export default function InventoryPage() {
           cost: Number(formData.cost),
           srp: Number(formData.srp),
           quantity: Number(formData.quantity),
+          lowStockThreshold: Number(formData.lowStockThreshold) || 10,
+          sku: formData.sku || undefined,
+          barcode: formData.barcode || undefined,
         };
         if (editId) {
           await updateInventory(editId, payload);
@@ -238,101 +250,192 @@ export default function InventoryPage() {
 
   const columns = [
     {
+      field: 'sku',
+      headerName: 'SKU',
+      width: 100,
+      renderCell: ({ row }) => row.sku || '—',
+    },
+    {
+      field: 'barcode',
+      headerName: 'Barcode',
+      width: 120,
+      renderCell: ({ row }) => row.barcode || '—',
+    },
+    {
       field: 'productName',
       headerName: 'Product Name',
+      width: 150,
       renderCell: ({ row }) =>
         row.product?.name || sel(lookups.products, row.productId) || row.productName || '—',
     },
     {
       field: 'brand',
       headerName: 'Brand',
+      width: 100,
       renderCell: ({ row }) =>
         row.brand?.name || sel(lookups.brands, row.brandId) || '—',
     },
     {
+      field: 'design',
+      headerName: 'Design',
+      width: 100,
+      renderCell: ({ row }) =>
+        row.design?.name || sel(lookups.designs, row.designId) || '—',
+    },
+    {
       field: 'supplier',
       headerName: 'Supplier',
+      width: 100,
       renderCell: ({ row }) =>
         row.supplier?.name || sel(lookups.suppliers, row.supplierId) || '—',
     },
     {
       field: 'category',
       headerName: 'Category',
+      width: 100,
       renderCell: ({ row }) =>
         row.category?.name || sel(lookups.categories, row.categoryId) || '—',
     },
     {
+      field: 'warehouse',
+      headerName: 'Warehouse',
+      width: 110,
+      renderCell: ({ row }) =>
+        row.warehouse?.name || sel(lookups.warehouses, row.warehouseId) || '—',
+    },
+    {
       field: 'zone',
       headerName: 'Zone',
+      width: 90,
       renderCell: ({ row }) =>
         row.zone?.name || sel(lookups.zones, row.zoneId) || '—',
     },
     {
       field: 'bin',
       headerName: 'Bin',
+      width: 90,
       renderCell: ({ row }) =>
         row.bin?.name || sel(lookups.bins, row.binId) || '—',
     },
     {
       field: 'rack',
       headerName: 'Rack',
+      width: 90,
       renderCell: ({ row }) =>
         row.rack?.name || sel(lookups.racks, row.rackId) || '—',
     },
     {
       field: 'location',
       headerName: 'Location',
+      width: 100,
       renderCell: ({ row }) =>
         row.location?.name || sel(lookups.locations, row.locationId) || '—',
     },
     {
-      field: 'warehouse',
-      headerName: 'Warehouse',
+      field: 'type',
+      headerName: 'Type',
+      width: 90,
       renderCell: ({ row }) =>
-        row.warehouse?.name || sel(lookups.warehouses, row.warehouseId) || '—',
+        row.type?.name || sel(lookups.types, row.typeId) || '—',
+    },
+    {
+      field: 'unit',
+      headerName: 'Unit',
+      width: 90,
+      renderCell: ({ row }) =>
+        row.unit?.name || sel(lookups.units, row.unitId) || '—',
     },
     {
       field: 'quantity',
       headerName: 'Qty',
+      width: 70,
+      type: 'number',
       renderCell: ({ row }) => row.quantity ?? '—',
     },
     {
       field: 'cost',
-      headerName: 'Cost',
+      headerName: 'Cost (₱)',
+      width: 100,
+      type: 'number',
       renderCell: ({ row }) => fmt(row.cost),
     },
     {
       field: 'srp',
-      headerName: 'SRP',
+      headerName: 'SRP (₱)',
+      width: 100,
+      type: 'number',
       renderCell: ({ row }) => fmt(row.srp),
     },
     {
       field: 'totalCost',
-      headerName: 'Total Cost',
+      headerName: 'Total Cost (₱)',
+      width: 130,
+      type: 'number',
       renderCell: ({ row }) => fmt((row.cost || 0) * (row.quantity || 0)),
     },
     {
       field: 'totalSrp',
-      headerName: 'Total SRP',
+      headerName: 'Total SRP (₱)',
+      width: 130,
+      type: 'number',
       renderCell: ({ row }) => fmt((row.srp || 0) * (row.quantity || 0)),
+    },
+    {
+      field: 'vatType',
+      headerName: 'VAT Type',
+      width: 100,
+      renderCell: ({ row }) => {
+        const vt = row.vatType || 'none';
+        return (
+          <Chip
+            label={vt.charAt(0).toUpperCase() + vt.slice(1)}
+            size="small"
+            variant="outlined"
+          />
+        );
+      },
+    },
+    {
+      field: 'vatAmount',
+      headerName: 'VAT (₱)',
+      width: 100,
+      type: 'number',
+      renderCell: ({ row }) => fmt(row.vatAmount),
+    },
+    {
+      field: 'lowStockThreshold',
+      headerName: 'Low Stock Threshold',
+      width: 120,
+      type: 'number',
+      renderCell: ({ row }) => row.lowStockThreshold ?? 10,
     },
     {
       field: 'stockStatus',
       headerName: 'Stock Status',
+      width: 120,
       renderCell: ({ row }) => {
         const s = row.stockStatus || row.stock_status || 'In Stock';
         return <Chip label={s} size="small" color={STOCK_STATUS_COLORS[s] || 'default'} />;
       },
     },
     {
+      field: 'dateReceived',
+      headerName: 'Date Received',
+      width: 120,
+      renderCell: ({ row }) =>
+        row.dateReceived ? dayjs(row.dateReceived).format('MMM DD, YYYY') : '—',
+    },
+    {
       field: 'expirationDate',
       headerName: 'Expiry Date',
+      width: 120,
       renderCell: ({ row }) =>
         row.expirationDate ? dayjs(row.expirationDate).format('MMM DD, YYYY') : '—',
     },
     {
       field: 'actions',
       headerName: 'Actions',
+      width: 100,
       renderCell: ({ row }) => (
         <Stack direction="row" spacing={0.5}>
           <Tooltip title="Edit">
@@ -456,6 +559,26 @@ export default function InventoryPage() {
           maxWidth="md"
         >
           <Grid container spacing={2} mt={0.5}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="SKU"
+                fullWidth
+                size="small"
+                value={formData.sku}
+                onChange={setF('sku')}
+                placeholder="e.g., SKU-001"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Barcode"
+                fullWidth
+                size="small"
+                value={formData.barcode}
+                onChange={setF('barcode')}
+                placeholder="e.g., 1234567890"
+              />
+            </Grid>
             <Grid item xs={12} sm={6}>{lookupSelect('Brand', 'brandId', 'brands')}</Grid>
             <Grid item xs={12} sm={6}>{lookupSelect('Design', 'designId', 'designs')}</Grid>
             <Grid item xs={12} sm={6}>{lookupSelect('Supplier', 'supplierId', 'suppliers')}</Grid>
@@ -470,23 +593,23 @@ export default function InventoryPage() {
             <Grid item xs={12} sm={6}>{lookupSelect('Unit', 'unitId', 'units')}</Grid>
             <Grid item xs={12} sm={6}>
               <DatePicker
-                label="Expiration Date"
-                value={formData.expirationDate}
-                onChange={setDate('expirationDate')}
-                slotProps={{ textField: { fullWidth: true, size: 'small' } }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <DatePicker
                 label="Date Received"
                 value={formData.dateReceived}
                 onChange={setDate('dateReceived')}
                 slotProps={{ textField: { fullWidth: true, size: 'small' } }}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={6}>
+              <DatePicker
+                label="Expiration Date"
+                value={formData.expirationDate}
+                onChange={setDate('expirationDate')}
+                slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={3}>
               <TextField
-                label="Cost"
+                label="Cost (₱)"
                 type="number"
                 fullWidth
                 size="small"
@@ -495,9 +618,9 @@ export default function InventoryPage() {
                 inputProps={{ min: 0, step: '0.01' }}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={3}>
               <TextField
-                label="SRP"
+                label="SRP (₱)"
                 type="number"
                 fullWidth
                 size="small"
@@ -506,7 +629,7 @@ export default function InventoryPage() {
                 inputProps={{ min: 0, step: '0.01' }}
               />
             </Grid>
-            <Grid item xs={12} sm={4}>
+            <Grid item xs={12} sm={3}>
               <TextField
                 label="Quantity"
                 type="number"
@@ -517,12 +640,24 @@ export default function InventoryPage() {
                 inputProps={{ min: 0 }}
               />
             </Grid>
+            <Grid item xs={12} sm={3}>
+              <TextField
+                label="Low Stock Threshold"
+                type="number"
+                fullWidth
+                size="small"
+                value={formData.lowStockThreshold}
+                onChange={setF('lowStockThreshold')}
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth size="small">
                 <InputLabel>VAT Type</InputLabel>
                 <Select value={formData.vatType} label="VAT Type" onChange={setF('vatType')}>
                   <MenuItem value="inclusive">Inclusive</MenuItem>
                   <MenuItem value="exclusive">Exclusive</MenuItem>
+                  <MenuItem value="none">None</MenuItem>
                 </Select>
               </FormControl>
             </Grid>

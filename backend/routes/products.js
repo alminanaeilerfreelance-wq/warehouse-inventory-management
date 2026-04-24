@@ -23,10 +23,21 @@ const { protect, adminOnly } = require('../middleware/auth');
 
 router.get('/', protect, async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 10 } = req.query;
+    const { search = '', page = 1, limit = 10, noPagination } = req.query;
+    const query = search ? { name: { $regex: search, $options: 'i' } } : {};
+    
+    // If noPagination flag is set, return all items
+    if (noPagination) {
+      const items = await ProductName.find(query)
+        .populate('category', 'name')
+        .populate('brand', 'name')
+        .sort({ createdAt: -1 });
+      res.json({ items, total: items.length });
+      return;
+    }
+    
     const pagenumber = Number(page) || 1;
     const pagesize = Number(limit) || 10;
-    const query = search ? { name: { $regex: search, $options: 'i' } } : {};
     const total = await ProductName.countDocuments(query);
     const items = await ProductName.find(query)
       .populate('category', 'name')

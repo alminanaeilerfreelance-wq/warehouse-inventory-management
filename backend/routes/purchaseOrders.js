@@ -53,7 +53,7 @@ router.get('/:id', protect, async (req, res) => {
 // POST /api/purchase-orders — create PO
 router.post('/', protect, async (req, res) => {
   try {
-    const { supplier, warehouse, employee, items = [], notes, type = 'purchase', vatType, vatAmount } = req.body;
+    const { supplierId, supplier, warehouseId, warehouse, employeeId, employee, items = [], notes, type = 'purchase', vatType, vatAmount } = req.body;
 
     const invoiceNo = generateInvoiceNo();
 
@@ -79,9 +79,9 @@ router.post('/', protect, async (req, res) => {
 
     const po = await PurchaseOrder.create({
       invoiceNo,
-      supplier,
-      warehouse,
-      employee,
+      supplier: supplierId || supplier,
+      warehouse: warehouseId || warehouse,
+      employee: employeeId || employee,
       items: processedItems,
       subtotal,
       totalAmount,
