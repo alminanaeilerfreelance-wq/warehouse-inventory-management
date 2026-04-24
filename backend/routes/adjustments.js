@@ -6,11 +6,21 @@ const { protect, adminOnly } = require('../middleware/auth');
 const { generateInvoiceNo } = require('../utils/invoiceNumber');
 const { updateStockStatus } = require('../utils/stockStatus');
 
-// GET /api/adjustments — list all, paginate, populate product
+// GET /api/adjustments — list all, paginate, populate product (+ noPagination support)
 router.get('/', protect, async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, noPagination } = req.query;
     const total = await InventoryAdjustment.countDocuments();
+    
+    // If noPagination=true, return all items without pagination
+    if (noPagination) {
+      const items = await InventoryAdjustment.find()
+        .populate({ path: 'items.inventory', populate: { path: 'productName brand' } })
+        .populate('adjustedBy', 'username customerName email')
+        .sort({ createdAt: -1 });
+      return res.json({ items, total: items.length });
+    }
+
     const items = await InventoryAdjustment.find()
       .populate({ path: 'items.inventory', populate: { path: 'productName brand' } })
       .populate('adjustedBy', 'username customerName email')

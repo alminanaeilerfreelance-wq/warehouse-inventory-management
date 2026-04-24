@@ -81,11 +81,15 @@ app.use((err, req, res, next) => {
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
-  console.log(`[Socket] Client connected: ${socket.id}`);
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[Socket] Client connected: ${socket.id}`);
+  }
 
   socket.on('join', (userId) => {
     socket.join(`user_${userId}`);
-    console.log(`[Socket] User ${userId} joined their room`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Socket] User ${userId} joined their room`);
+    }
   });
 
   socket.on('join_admin', () => {
@@ -93,7 +97,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`[Socket] Client disconnected: ${socket.id}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[Socket] Client disconnected: ${socket.id}`);
+    }
   });
 });
 

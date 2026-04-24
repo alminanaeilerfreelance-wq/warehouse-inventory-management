@@ -209,7 +209,14 @@ export default function DataTable({
                       <TableCell key={col.field} sx={{ py: 1.2, fontSize: 13 }}>
                         {col.renderCell
                           ? col.renderCell({ value: row[col.field], row })
-                          : row[col.field] ?? '—'}
+                          : (() => {
+                            const value = row[col.field];
+                            // If value is an object, extract name property; otherwise render as-is
+                            if (value && typeof value === 'object' && !Array.isArray(value)) {
+                              return value.name || value.title || String(value._id || value.id || '—');
+                            }
+                            return value ?? '—';
+                          })()}
                       </TableCell>
                     ))}
                   </TableRow>

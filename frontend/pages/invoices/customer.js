@@ -134,7 +134,9 @@ export default function CustomerInvoicesPage() {
       setCustomers(norm(cRes));
       setEmployees(norm(eRes));
       setStoreBranches(norm(bRes));
-    } catch { /* silently fail */ }
+    } catch (err) {
+      console.error('Error loading lookups:', err);
+    }
   }, []);
 
   const fetchInventory = useCallback(async () => {
@@ -142,13 +144,15 @@ export default function CustomerInvoicesPage() {
       const res = await getInventory({ search: inventorySearch, limit: 50 });
       const d = res.data?.data || res.data;
       setInventoryItems(Array.isArray(d) ? d : d?.items || d?.inventory || []);
-    } catch { /* silently fail */ }
+    } catch (err) {
+      console.error('Error loading inventory:', err);
+    }
   }, [inventorySearch]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getInvoices({ page: page + 1, limit: rowsPerPage, search, type: 'customer' });
+      const res = await getInvoices({ page: page + 1, limit: rowsPerPage, search, invoiceType: 'customer' });
       const d = res.data?.data || res.data;
       const items = Array.isArray(d) ? d : d?.items || d?.invoices || [];
       setRows(items);

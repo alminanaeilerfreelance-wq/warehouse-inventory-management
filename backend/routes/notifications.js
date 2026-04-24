@@ -33,16 +33,34 @@ router.get('/', protect, async (req, res) => {
     const [lowStock, recentInvoices, pendingApprovals] = await Promise.all([
       // Items that are low_stock or out_of_stock
       InventoryModel.find({
-        stock_status: { $in: ['low_stock', 'out_of_stock'] },
-      }).sort({ stock_status: 1, quantity: 1 }),
+        stockStatus: { $in: ['low_stock', 'out_of_stock'] },
+      })
+        .populate([
+          { path: 'productName' },
+          { path: 'warehouse' },
+          { path: 'brand' },
+          { path: 'category' },
+        ])
+        .sort({ stockStatus: 1, quantity: 1 }),
 
       // 10 most recent invoices (newest first)
       InvoiceModel.find()
+        .populate([
+          { path: 'customer' },
+          { path: 'employee' },
+          { path: 'storeBranch' },
+        ])
         .sort({ createdAt: -1 })
         .limit(10),
 
       // Purchase orders that have not been approved yet
-      PurchaseOrderModel.find({ isApproved: false }).sort({ createdAt: -1 }),
+      PurchaseOrderModel.find({ isApproved: false })
+        .populate([
+          { path: 'supplier' },
+          { path: 'warehouse' },
+          { path: 'employee' },
+        ])
+        .sort({ createdAt: -1 }),
     ]);
 
     return res.status(200).json({

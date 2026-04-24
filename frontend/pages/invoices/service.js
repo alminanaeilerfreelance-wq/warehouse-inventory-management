@@ -126,7 +126,9 @@ export default function ServiceInvoicesPage() {
       setCustomers(norm(cRes));
       setEmployees(norm(eRes));
       setStoreBranches(norm(bRes));
-    } catch { /* silently fail */ }
+    } catch (err) {
+      console.error('Error loading lookups:', err);
+    }
   }, []);
 
   const fetchServices = useCallback(async () => {
@@ -134,13 +136,15 @@ export default function ServiceInvoicesPage() {
       const res = await api.get('/services', { params: { search: serviceSearch, limit: 50 } });
       const d = res.data?.data || res.data;
       setServices(Array.isArray(d) ? d : d?.items || d?.services || []);
-    } catch { /* silently fail */ }
+    } catch (err) {
+      console.error('Error loading services:', err);
+    }
   }, [serviceSearch]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getInvoices({ page: page + 1, limit: rowsPerPage, search, type: 'service' });
+      const res = await getInvoices({ page: page + 1, limit: rowsPerPage, search, invoiceType: 'service' });
       const d = res.data?.data || res.data;
       const items = Array.isArray(d) ? d : d?.items || d?.invoices || [];
       setRows(items);

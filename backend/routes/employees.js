@@ -3,10 +3,10 @@ const router = express.Router();
 const Employee = require('../models/Employee');
 const { protect, adminOnly } = require('../middleware/auth');
 
-// GET all with search + pagination
+// GET all with search + pagination (+ noPagination support)
 router.get('/', protect, async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 10 } = req.query;
+    const { search = '', page = 1, limit = 10, noPagination } = req.query;
     const query = search
       ? {
           $or: [
@@ -17,6 +17,14 @@ router.get('/', protect, async (req, res) => {
         }
       : {};
     const total = await Employee.countDocuments(query);
+    
+    // If noPagination=true, return all items without pagination
+    if (noPagination) {
+      const items = await Employee.find(query)
+        .sort({ createdAt: -1 });
+      return res.json({ items, total: items.length });
+    }
+
     const items = await Employee.find(query)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -53,8 +61,6 @@ router.post('/', protect, adminOnly, async (req, res) => {
       salary,
       status,
     } = req.body;
-
-    console.log("🔥 CREATE EMPLOYEE BODY:", req.body);
 
     // VALIDATION
     if (!name) {

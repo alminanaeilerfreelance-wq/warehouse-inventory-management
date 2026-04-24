@@ -132,7 +132,7 @@ export const exportReportExcel = (type, params) =>
   api.get(`/reports/export/${type}`, { params, responseType: 'blob' });
 
 // ─── Inventory bulk import ────────────────────────────────────────────────────
-export const bulkImportInventory = (data) => api.post('/inventory/bulk-import', data);
+export const bulkImportInventory = (data) => api.post('/inventory/bulk-import', { items: data });
 
 // User Management
 export const getUsers = (params) => api.get('/users', { params });

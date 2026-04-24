@@ -54,12 +54,27 @@ router.post('/', protect, async (req, res) => {
 // GET / — list with pagination, filter by status
 router.get('/', protect, async (req, res) => {
   try {
-    const { page = 1, limit = 20, status, search } = req.query;
+    const { page = 1, limit = 20, status, search, noPagination } = req.query;
     const query = {};
     if (status) query.status = status;
     if (search) query.transferNo = { $regex: search, $options: 'i' };
 
     const total = await Transfer.countDocuments(query);
+    
+    // If noPagination=true, return all items without pagination
+    if (noPagination) {
+      const items = await Transfer.find(query)
+        .populate('fromWarehouse', 'name')
+        .populate('toWarehouse', 'name')
+        .populate('fromBranch', 'name')
+        .populate('toBranch', 'name')
+        .populate('requestedBy', 'username customerName')
+        .populate('approvedBy', 'username customerName')
+        .populate('items.product')
+        .sort({ createdAt: -1 });
+      return res.json({ items, total: items.length });
+    }
+
     const items = await Transfer.find(query)
       .populate('fromWarehouse', 'name')
       .populate('toWarehouse', 'name')

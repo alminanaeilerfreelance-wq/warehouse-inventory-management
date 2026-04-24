@@ -16,10 +16,10 @@ const populateOptions = [
   { path: 'approvedBy', select: 'username customerName email' },
 ];
 
-// GET /api/purchase-orders — list with filters + pagination
+// GET /api/purchase-orders — list with filters + pagination (+ noPagination support)
 router.get('/', protect, async (req, res) => {
   try {
-    const { page = 1, limit = 10, type, status, search = '' } = req.query;
+    const { page = 1, limit = 10, type, status, search = '', noPagination } = req.query;
     const query = {};
 
     if (type) query.type = type;
@@ -27,6 +27,15 @@ router.get('/', protect, async (req, res) => {
     if (search) query.invoiceNo = { $regex: search, $options: 'i' };
 
     const total = await PurchaseOrder.countDocuments(query);
+    
+    // If noPagination=true, return all items without pagination
+    if (noPagination) {
+      const items = await PurchaseOrder.find(query)
+        .populate(populateOptions)
+        .sort({ createdAt: -1 });
+      return res.json({ items, total: items.length });
+    }
+
     const items = await PurchaseOrder.find(query)
       .populate(populateOptions)
       .sort({ createdAt: -1 })

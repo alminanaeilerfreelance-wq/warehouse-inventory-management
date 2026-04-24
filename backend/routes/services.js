@@ -3,12 +3,21 @@ const router = express.Router();
 const Service = require('../models/Service');
 const { protect, adminOnly } = require('../middleware/auth');
 
-// GET all with search + pagination
+// GET all with search + pagination (+ noPagination support)
 router.get('/', protect, async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 10 } = req.query;
+    const { search = '', page = 1, limit = 10, noPagination } = req.query;
     const query = search ? { name: { $regex: search, $options: 'i' } } : {};
     const total = await Service.countDocuments(query);
+    
+    // If noPagination=true, return all items without pagination
+    if (noPagination) {
+      const items = await Service.find(query)
+        .populate('unit')
+        .sort({ createdAt: -1 });
+      return res.json({ items, total: items.length });
+    }
+
     const items = await Service.find(query)
       .populate('unit')
       .sort({ createdAt: -1 })

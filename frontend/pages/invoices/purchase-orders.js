@@ -106,7 +106,9 @@ export default function PurchaseOrdersPage() {
       setSuppliers(norm(sRes));
       setWarehouses(norm(wRes));
       setEmployees(norm(eRes));
-    } catch { /* silently fail */ }
+    } catch (err) {
+      console.error('Error loading lookups:', err);
+    }
   }, []);
 
   const fetchInventory = useCallback(async () => {
@@ -114,7 +116,9 @@ export default function PurchaseOrdersPage() {
       const res = await getInventory({ search: invSearch, limit: 50 });
       const d = res.data?.data || res.data;
       setInventoryItems(Array.isArray(d) ? d : d?.items || d?.inventory || []);
-    } catch { /* silently fail */ }
+    } catch (err) {
+      console.error('Error loading inventory:', err);
+    }
   }, [invSearch]);
 
   const fetchData = useCallback(async () => {

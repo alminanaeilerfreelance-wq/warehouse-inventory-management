@@ -25,9 +25,12 @@ async function sendEmail({ to, subject, html }) {
 
 // Templates
 function lowStockEmail(items) {
-  const rows = items.map(i =>
-    `<tr><td>${i.productName||'—'}</td><td>${i.quantity}</td><td style="color:red">${i.stockStatus}</td></tr>`
-  ).join('');
+  const rows = items.map(i => {
+    const productName = (typeof i.productName === 'object' && i.productName?.name) 
+      ? i.productName.name 
+      : i.productName || '—';
+    return `<tr><td>${productName}</td><td>${i.quantity}</td><td style="color:red">${i.stockStatus}</td></tr>`;
+  }).join('');
   return {
     subject: '⚠️ WMS Pro — Low Stock Alert',
     html: `<h2>Low Stock Alert</h2><p>${items.length} item(s) need attention:</p>

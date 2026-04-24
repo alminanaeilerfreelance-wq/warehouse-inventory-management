@@ -33,7 +33,7 @@ const sanitizeUser = (user) => ({
   isSuspicious: user.isSuspicious,
   createdAt: user.createdAt,
   updatedAt: user.updatedAt,
-  permissions: user.permissions,
+  permissions: user.permissions || {},
 });
 
 // Helper — record a security alert

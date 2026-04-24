@@ -59,7 +59,7 @@ export default function AdjustmentPage() {
   const fetchInventory = useCallback(async () => {
     setInventoryLoading(true);
     try {
-      const res = await getInventory({ search: inventorySearch, limit: 50 });
+      const res = await getInventory({ search: inventorySearch, limit: 100, noPagination: true });
       const d = res.data?.data || res.data;
       const items = Array.isArray(d) ? d : d?.items || d?.inventory || [];
       setInventoryItems(items);
@@ -97,7 +97,7 @@ export default function AdjustmentPage() {
       ...prev,
       {
         inventoryId: id,
-        productName: item.product?.name || item.productName || 'Unknown',
+        productName: item.productName?.name || item.product?.name || item.productName || 'Unknown',
         currentQty: item.quantity || 0,
         adjustType: 'Increment',
         adjustQty: 1,
@@ -135,26 +135,45 @@ export default function AdjustmentPage() {
   const handleAdminConfirm = async () => {
     setSaving(true);
     try {
+      if (cart.length === 0) {
+        enqueueSnackbar('Cart is empty', { variant: 'warning' });
+        setSaving(false);
+        return;
+      }
+
+      // Validate all items have the same adjustment type
+      const adjustTypes = [...new Set(cart.map((c) => c.adjustType))];
+      if (adjustTypes.length > 1) {
+        enqueueSnackbar(
+          'All items must have the same adjustment type (all increment or all decrement)',
+          { variant: 'warning' }
+        );
+        setSaving(false);
+        return;
+      }
+
+      const adjustmentType = adjustTypes[0];
+      const type = adjustmentType === 'Increment' ? 'increment' : 'decrement';
+
       const payload = {
+        type,
         items: cart.map((c) => ({
-          inventoryId: c.inventoryId,
-          adjustType: c.adjustType,
-          adjustQty: Number(c.adjustQty),
-          newQty: getNewQty(c),
+          inventory: c.inventoryId,
+          quantity: Number(c.adjustQty),
         })),
         notes,
-        type: 'adjustment',
       };
+
       const res = await createAdjustment(payload);
       const invoiceNo = res.data?.data?.invoiceNo || res.data?.invoiceNo || '';
       setSavedInvoiceNo(invoiceNo);
       enqueueSnackbar('Adjustment saved successfully', { variant: 'success' });
       setCart([]);
       setNotes('');
+      setAdminOpen(false);
       fetchRecent();
     } catch (err) {
       enqueueSnackbar(err?.response?.data?.message || 'Save failed', { variant: 'error' });
-      throw err;
     } finally {
       setSaving(false);
     }
@@ -230,7 +249,7 @@ export default function AdjustmentPage() {
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Box>
                           <Typography variant="body2" fontWeight={600}>
-                            {item.product?.name || item.productName || 'Unknown'}
+                            {item.productName?.name || item.product?.name || 'Unknown'}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
                             Qty: {item.quantity ?? 0}

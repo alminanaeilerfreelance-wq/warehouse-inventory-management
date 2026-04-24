@@ -115,6 +115,10 @@ const invoiceSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },
+    totalPaid: {
+      type: Number,
+      default: 0,
+    },
   },
   { timestamps: true }
 );

@@ -48,10 +48,10 @@ const calculateTotals = (subtotal, discount = 0, discountType = 'fixed', vatType
   };
 };
 
-// GET /api/invoices — list with filters + pagination
+// GET /api/invoices — list with filters + pagination (+ noPagination support)
 router.get('/', protect, async (req, res) => {
   try {
-    const { page = 1, limit = 10, invoiceType, paymentStatus, search = '' } = req.query;
+    const { page = 1, limit = 10, invoiceType, paymentStatus, search = '', noPagination } = req.query;
     const query = {};
 
     if (invoiceType) query.invoiceType = invoiceType;
@@ -59,6 +59,15 @@ router.get('/', protect, async (req, res) => {
     if (search) query.invoiceNo = { $regex: search, $options: 'i' };
 
     const total = await Invoice.countDocuments(query);
+    
+    // If noPagination=true, return all items without pagination
+    if (noPagination) {
+      const items = await Invoice.find(query)
+        .populate(populateOptions)
+        .sort({ createdAt: -1 });
+      return res.json({ items, total: items.length });
+    }
+
     const items = await Invoice.find(query)
       .populate(populateOptions)
       .sort({ createdAt: -1 })

@@ -3,24 +3,7 @@ const router = express.Router();
 const ProductName = require('../models/ProductName');
 const { protect, adminOnly } = require('../middleware/auth');
 
-// GET all with search + pagination
-// router.get('/', protect, async (req, res) => {
-//   try {
-//     const { search = '', page = 1, limit = 10 } = req.query;
-//     const query = search ? { name: { $regex: search, $options: 'i' } } : {};
-//     const total = await ProductName.countDocuments(query);
-//     const items = await ProductName.find(query)
-//       .populate('category')
-//       .populate('brand')
-//       .sort({ createdAt: -1 })
-//       .skip((page - 1) * limit)
-//       .limit(Number(limit));
-//     res.json({ items, total, page: Number(page), pages: Math.ceil(total / limit) });
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// });
-
+// GET all with search + pagination + noPagination support
 router.get('/', protect, async (req, res) => {
   try {
     const { search = '', page = 1, limit = 10, noPagination } = req.query;
@@ -63,15 +46,6 @@ router.get('/:id', protect, async (req, res) => {
 });
 
 // POST create
-// router.post('/', protect, adminOnly, async (req, res) => {
-//   try {
-//     const item = await ProductName.create(req.body);
-//     res.status(201).json(item);
-//   } catch (err) {
-//     res.status(400).json({ message: err.message });
-//   }
-// });
-
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
     const { name, categoryId, brandId, description } = req.body;

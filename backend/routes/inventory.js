@@ -88,7 +88,7 @@ router.post('/export/excel', protect, async (req, res) => {
 // GET /api/inventory — search, filter, paginate
 router.get('/', protect, async (req, res) => {
   try {
-    const { search = '', page = 1, limit = 10, stock_status } = req.query;
+    const { search = '', page = 1, limit = 10, stock_status, noPagination } = req.query;
 
     const query = {};
 
@@ -126,13 +126,24 @@ router.get('/', protect, async (req, res) => {
           },
         },
         { $sort: { createdAt: -1 } },
-        {
-          $facet: {
-            metadata: [{ $count: 'total' }],
-            data: [{ $skip: (Number(page) - 1) * Number(limit) }, { $limit: Number(limit) }],
-          },
-        },
       ];
+
+      // If noPagination, skip facet and return all
+      if (noPagination) {
+        const result = await Inventory.aggregate(pipeline);
+        const ids = result.map((i) => i._id);
+        const items = await Inventory.find({ _id: { $in: ids } })
+          .populate(populateFields)
+          .sort({ createdAt: -1 });
+        return res.json({ items, total: items.length });
+      }
+
+      pipeline.push({
+        $facet: {
+          metadata: [{ $count: 'total' }],
+          data: [{ $skip: (Number(page) - 1) * Number(limit) }, { $limit: Number(limit) }],
+        },
+      });
 
       const result = await Inventory.aggregate(pipeline);
       const total = result[0].metadata[0]?.total || 0;
@@ -148,6 +159,15 @@ router.get('/', protect, async (req, res) => {
     }
 
     const total = await Inventory.countDocuments(query);
+    
+    // If noPagination, return all
+    if (noPagination) {
+      const items = await Inventory.find(query)
+        .populate(populateFields)
+        .sort({ createdAt: -1 });
+      return res.json({ items, total: items.length });
+    }
+
     const items = await Inventory.find(query)
       .populate(populateFields)
       .sort({ createdAt: -1 })
@@ -248,18 +268,7 @@ router.put('/:id', protect, adminOnly, async (req, res) => {
   }
 });
 
-// DELETE /api/inventory/:id — admin only
-router.delete('/:id', protect, adminOnly, async (req, res) => {
-  try {
-    const item = await Inventory.findByIdAndDelete(req.params.id);
-    if (!item) return res.status(404).json({ message: 'Not found' });
-    res.json({ message: 'Deleted successfully' });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// POST /api/inventory/bulk-import — admin only
+// POST /api/inventory/bulk-import — admin only (MOVED BEFORE /:id ROUTES)
 router.post('/bulk-import', protect, adminOnly, async (req, res) => {
   try {
     const { items } = req.body;
@@ -267,15 +276,38 @@ router.post('/bulk-import', protect, adminOnly, async (req, res) => {
       return res.status(400).json({ message: 'items array is required' });
 
     const results = { imported: 0, failed: 0, errors: [] };
+    const requiredFields = ['productName', 'warehouse', 'category', 'zone', 'bin', 'location'];
 
     for (let i = 0; i < items.length; i++) {
       const row = items[i];
       try {
+        // Validate required fields
+        for (const field of requiredFields) {
+          if (!row[field]) {
+            throw new Error(`Missing required field: ${field}`);
+          }
+        }
+
         const qty = Number(row.quantity) || 0;
         const cost = Number(row.cost) || 0;
         const srp = Number(row.srp) || 0;
+
+        // Map field names if coming as Ids
+        const data = { ...row };
+        if (data.productNameId) data.productName = data.productNameId;
+        if (data.warehouseId) data.warehouse = data.warehouseId;
+        if (data.categoryId) data.category = data.categoryId;
+        if (data.zoneId) data.zone = data.zoneId;
+        if (data.binId) data.bin = data.binId;
+        if (data.locationId) data.location = data.locationId;
+        if (data.brandId) data.brand = data.brandId;
+        if (data.designId) data.design = data.designId;
+        if (data.supplierId) data.supplier = data.supplierId;
+        if (data.typeId) data.type = data.typeId;
+        if (data.unitId) data.unit = data.unitId;
+
         await Inventory.create({
-          ...row,
+          ...data,
           quantity: qty,
           cost,
           srp,
@@ -296,40 +328,64 @@ router.post('/bulk-import', protect, adminOnly, async (req, res) => {
   }
 });
 
-// GET /api/inventory/export/excel — export all to Excel
-router.get('/export/excel', protect, async (req, res) => {
+// GET /api/inventory/:id — single item
+router.get('/:id', protect, async (req, res) => {
   try {
-    const items = await Inventory.find().populate(populateFields).lean();
-    const XLSX = require('xlsx');
-    const rows = items.map((it) => ({
-      'Product Name': it.productName?.name || '',
-      Brand: it.brand?.name || '',
-      Supplier: it.supplier?.name || '',
-      Category: it.category?.name || '',
-      Zone: it.zone?.name || '',
-      Bin: it.bin?.name || '',
-      Rack: it.rack?.name || '',
-      Location: it.location?.name || '',
-      Warehouse: it.warehouse?.name || '',
-      Type: it.type?.name || '',
-      Unit: it.unit?.name || '',
-      Quantity: it.quantity,
-      Cost: it.cost,
-      SRP: it.srp,
-      'Total Cost': it.totalCost,
-      'Total SRP': it.totalSrp,
-      'VAT Type': it.vatType || '',
-      'Stock Status': it.stockStatus,
-      'Expiration Date': it.expirationDate ? new Date(it.expirationDate).toLocaleDateString() : '',
-      'Date Received': it.dateReceived ? new Date(it.dateReceived).toLocaleDateString() : '',
-    }));
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(rows);
-    XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-    res.setHeader('Content-Disposition', 'attachment; filename="inventory.xlsx"');
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.send(buf);
+    const item = await Inventory.findById(req.params.id).populate(populateFields);
+    if (!item) return res.status(404).json({ message: 'Not found' });
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// PUT /api/inventory/:id — update
+router.put('/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const data = { ...req.body };
+
+    // Field mapping: convert xxxId to field names
+    if (data.brandId) data.brand = data.brandId;
+    if (data.designId) data.design = data.designId;
+    if (data.supplierId) data.supplier = data.supplierId;
+    if (data.categoryId) data.category = data.categoryId;
+    if (data.productId) data.productName = data.productId;
+    if (data.zoneId) data.zone = data.zoneId;
+    if (data.binId) data.bin = data.binId;
+    if (data.rackId) data.rack = data.rackId;
+    if (data.locationId) data.location = data.locationId;
+    if (data.warehouseId) data.warehouse = data.warehouseId;
+    if (data.typeId) data.type = data.typeId;
+    if (data.unitId) data.unit = data.unitId;
+
+    const existing = await Inventory.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Not found' });
+
+    const cost = data.cost !== undefined ? Number(data.cost) : existing.cost || 0;
+    const srp = data.srp !== undefined ? Number(data.srp) : existing.srp || 0;
+    const quantity = data.quantity !== undefined ? Number(data.quantity) : existing.quantity || 0;
+    const lowStockThreshold =
+      data.lowStockThreshold !== undefined ? Number(data.lowStockThreshold) : existing.lowStockThreshold || 10;
+
+    data.totalCost = cost * quantity;
+    data.totalSrp = srp * quantity;
+    data.stockStatus = updateStockStatus(quantity, lowStockThreshold);
+
+    const item = await Inventory.findByIdAndUpdate(req.params.id, data, { new: true, runValidators: true }).populate(
+      populateFields
+    );
+    res.json(item);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// DELETE /api/inventory/:id — admin only
+router.delete('/:id', protect, adminOnly, async (req, res) => {
+  try {
+    const item = await Inventory.findByIdAndDelete(req.params.id);
+    if (!item) return res.status(404).json({ message: 'Not found' });
+    res.json({ message: 'Deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

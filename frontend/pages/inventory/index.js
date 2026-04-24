@@ -157,7 +157,7 @@ export default function InventoryPage() {
       designId: row.designId || row.design?._id || row.design?.id || '',
       supplierId: row.supplierId || row.supplier?._id || row.supplier?.id || '',
       categoryId: row.categoryId || row.category?._id || row.category?.id || '',
-      productId: row.productId || row.product?._id || row.product?.id || '',
+      productId: row.productId || row.productName?._id || row.productName?.id || row.product?._id || row.product?.id || '',
       zoneId: row.zoneId || row.zone?._id || row.zone?.id || '',
       binId: row.binId || row.bin?._id || row.bin?.id || '',
       rackId: row.rackId || row.rack?._id || row.rack?.id || '',
@@ -266,7 +266,7 @@ export default function InventoryPage() {
       headerName: 'Product Name',
       width: 150,
       renderCell: ({ row }) =>
-        row.product?.name || sel(lookups.products, row.productId) || row.productName || '—',
+        row.productName?.name || row.product?.name || sel(lookups.products, row.productId) || '—',
     },
     {
       field: 'brand',
