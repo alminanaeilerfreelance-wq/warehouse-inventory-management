@@ -22,6 +22,7 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import PrintIcon from '@mui/icons-material/Print';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import TableChartIcon from '@mui/icons-material/TableChart';
+import { renderSafeValue } from '../../utils/renderSafe';
 
 /**
  * DataTable
@@ -209,14 +210,7 @@ export default function DataTable({
                       <TableCell key={col.field} sx={{ py: 1.2, fontSize: 13 }}>
                         {col.renderCell
                           ? col.renderCell({ value: row[col.field], row })
-                          : (() => {
-                            const value = row[col.field];
-                            // If value is an object, extract name property; otherwise render as-is
-                            if (value && typeof value === 'object' && !Array.isArray(value)) {
-                              return value.name || value.title || String(value._id || value.id || '—');
-                            }
-                            return value ?? '—';
-                          })()}
+                          : renderSafeValue(row[col.field])}
                       </TableCell>
                     ))}
                   </TableRow>
