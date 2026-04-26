@@ -14,6 +14,30 @@ import { PermissionsProvider } from '../context/PermissionsContext';
 
 const PUBLIC_ROUTES = ['/login', '/signup'];
 
+// Suppress react-to-print's findDOMNode deprecation warning
+if (typeof window !== 'undefined') {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  
+  const shouldSuppress = (...args) => {
+    const message = String(args[0] || '');
+    return message.includes('findDOMNode is deprecated') || 
+           message.includes('Warning: findDOMNode is deprecated');
+  };
+  
+  console.error = (...args) => {
+    if (!shouldSuppress(...args)) {
+      originalError.call(console, ...args);
+    }
+  };
+  
+  console.warn = (...args) => {
+    if (!shouldSuppress(...args)) {
+      originalWarn.call(console, ...args);
+    }
+  };
+}
+
 function AppContent({ Component, pageProps }) {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuth();

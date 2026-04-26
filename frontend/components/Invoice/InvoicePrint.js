@@ -1,4 +1,4 @@
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
@@ -9,8 +9,14 @@ import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import { QRCodeCanvas } from 'qrcode.react';
 import dayjs from 'dayjs';
+import DownloadIcon from '@mui/icons-material/Download';
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -26,6 +32,8 @@ const STATUS_COLORS = {
 const InvoicePrint = forwardRef(function InvoicePrint({ invoice, company, qrValue }, ref) {
   if (!invoice) return null;
 
+  const [qrScanOpen, setQrScanOpen] = useState(false);
+
   const items = invoice.items || [];
   const status = invoice.paymentStatus || invoice.status || 'Pending';
 
@@ -36,6 +44,27 @@ const InvoicePrint = forwardRef(function InvoicePrint({ invoice, company, qrValu
       total: invoice.total,
       date: invoice.invoiceDate,
     });
+
+  // Download invoice as PDF
+  const downloadInvoice = () => {
+    const element = ref?.current;
+    if (!element) return;
+
+    // Use browser's print dialog - user can save as PDF
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow.document.write('<html><head><title>Invoice</title>');
+    printWindow.document.write('<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700&display=swap">');
+    printWindow.document.write('<style>body { font-family: Roboto, sans-serif; font-size: 12px; } @media print { body { margin: 0; } }</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(element.innerHTML);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  };
 
   return (
     <Box
@@ -147,12 +176,21 @@ const InvoicePrint = forwardRef(function InvoicePrint({ invoice, company, qrValu
               <TableRow key={idx} sx={{ '&:nth-of-type(even)': { bgcolor: 'grey.50' } }}>
                 <TableCell sx={{ fontSize: 11 }}>{idx + 1}</TableCell>
                 <TableCell sx={{ fontSize: 11 }}>
-                  {item.productName || item.serviceName || item.product?.name || item.service?.name || '—'}
+                  <Box>
+                    <Typography variant="body2" sx={{ fontSize: 11, fontWeight: 600 }}>
+                      {item.productName || item.serviceName || item.product?.name || item.service?.name || '—'}
+                    </Typography>
+                    {(item.service?.description || item.description) && (
+                      <Typography variant="caption" sx={{ fontSize: 10, color: 'text.secondary' }}>
+                        {item.service?.description || item.description}
+                      </Typography>
+                    )}
+                  </Box>
                 </TableCell>
-                <TableCell align="center" sx={{ fontSize: 11 }}>{item.qty || 1}</TableCell>
-                <TableCell align="right" sx={{ fontSize: 11 }}>{fmt(item.unitPrice)}</TableCell>
+                <TableCell align="center" sx={{ fontSize: 11 }}>{item.quantity || item.qty || 1}</TableCell>
+                <TableCell align="right" sx={{ fontSize: 11 }}>{fmt(item.price || item.unitPrice || 0)}</TableCell>
                 <TableCell align="right" sx={{ fontSize: 11 }}>
-                  {fmt((item.unitPrice || 0) * (item.qty || 1))}
+                  {fmt((item.price || item.unitPrice || 0) * (item.quantity || item.qty || 1))}
                 </TableCell>
               </TableRow>
             ))
@@ -209,13 +247,55 @@ const InvoicePrint = forwardRef(function InvoicePrint({ invoice, company, qrValu
 
           {/* QR Code */}
           <Box textAlign="right">
-            <QRCodeCanvas value={qrString} size={80} />
+            <Box
+              onClick={() => setQrScanOpen(true)}
+              sx={{
+                cursor: 'pointer',
+                display: 'inline-block',
+                p: 1,
+                border: '1px solid #ddd',
+                borderRadius: 1,
+                '&:hover': { bgcolor: 'grey.50' },
+              }}
+            >
+              <QRCodeCanvas value={qrString} size={80} />
+            </Box>
             <Typography variant="caption" display="block" sx={{ fontSize: 9, mt: 0.5 }}>
-              Scan to verify
+              Click to scan
             </Typography>
           </Box>
         </Box>
       </Stack>
+
+      {/* QR Scan Dialog with Download */}
+      <Dialog open={qrScanOpen} onClose={() => setQrScanOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Invoice QR Code</DialogTitle>
+        <DialogContent>
+          <Box textAlign="center" py={3}>
+            <QRCodeCanvas value={qrString} size={200} />
+            <Typography variant="body2" sx={{ mt: 2 }}>
+              Scan this QR code to verify invoice
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Invoice: {invoice.invoiceNo || invoice.invoice_no}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQrScanOpen(false)}>Close</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<DownloadIcon />}
+            onClick={() => {
+              downloadInvoice();
+              setQrScanOpen(false);
+            }}
+          >
+            Download Invoice
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 });

@@ -22,7 +22,7 @@ import { verifyAdminPassword } from '../../utils/api';
  *   title        {string}
  *   description  {string}
  */
-export default function AdminConfirmDialog({ open, onClose, onConfirm, title, description }) {
+export default function AdminConfirmDialog({ open, onClose, onConfirm, title, description, children }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,6 +69,7 @@ export default function AdminConfirmDialog({ open, onClose, onConfirm, title, de
             {description}
           </DialogContentText>
         )}
+        {children}
         <TextField
           label="Admin Password"
           type="password"
@@ -80,6 +81,7 @@ export default function AdminConfirmDialog({ open, onClose, onConfirm, title, de
           variant="outlined"
           size="small"
           disabled={loading}
+          sx={{ mt: children ? 2 : 0 }}
         />
         {error && (
           <Alert severity="error" sx={{ mt: 1.5 }}>

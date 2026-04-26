@@ -35,6 +35,10 @@ const invoiceSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
+    invoiceDate: {
+      type: Date,
+      default: () => new Date(),
+    },
     invoiceType: {
       type: String,
       enum: ['customer', 'service', 'purchase_order', 'return_purchase_order'],

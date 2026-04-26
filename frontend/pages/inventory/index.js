@@ -412,10 +412,31 @@ export default function InventoryPage() {
     {
       field: 'stockStatus',
       headerName: 'Stock Status',
-      width: 120,
+      width: 140,
       renderCell: ({ row }) => {
         const s = row.stockStatus || row.stock_status || 'In Stock';
-        return <Chip label={s} size="small" color={STOCK_STATUS_COLORS[s] || 'default'} />;
+        const colorMap = {
+          'In Stock': '#4caf50',      // Green
+          'in_stock': '#4caf50',      // Green
+          'Low Stock': '#ff9800',     // Orange
+          'low_stock': '#ff9800',     // Orange
+          'Out of Stock': '#f44336',  // Red
+          'out_of_stock': '#f44336',  // Red
+        };
+        const dotColor = colorMap[s] || '#9e9e9e';
+        return (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Box
+              sx={{
+                width: 10,
+                height: 10,
+                borderRadius: '50%',
+                bgcolor: dotColor,
+              }}
+            />
+            <Chip label={s} size="small" color={STOCK_STATUS_COLORS[s] || 'default'} />
+          </Stack>
+        );
       },
     },
     {
@@ -541,7 +562,10 @@ export default function InventoryPage() {
               </FormControl>
             </Stack>
           }
-          onExport={{ onPrint: handlePrint, onPDF: handlePrint, onExcel: handleExportExcel }}
+          onExport={(type) => {
+            if (type === 'excel') handleExportExcel();
+            else handlePrint();
+          }}
           getRowSx={(row) => {
             const s = row.stockStatus || '';
             if (s === 'out_of_stock' || s === 'Out of Stock') return { bgcolor: '#fff5f5', '&:hover': { bgcolor: '#ffe0e0' } };

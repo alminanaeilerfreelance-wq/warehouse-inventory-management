@@ -203,7 +203,7 @@ router.post('/', protect, async (req, res) => {
 });
 
 // PUT /api/invoices/:id — update invoice fields
-router.put('/:id', protect, adminOnly, async (req, res) => {
+router.put('/:id', protect, async (req, res) => {
   try {
     const existing = await Invoice.findById(req.params.id);
     if (!existing) return res.status(404).json({ message: 'Not found' });

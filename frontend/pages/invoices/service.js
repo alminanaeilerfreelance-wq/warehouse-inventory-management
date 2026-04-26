@@ -67,6 +67,20 @@ const STATUS_COLORS = {
   Due: 'error',
 };
 
+// Helper to normalize status values from database (lowercase) to UI format (capitalized)
+const normalizeStatus = (status) => {
+  if (!status) return 'Pending';
+  const statusLower = String(status).toLowerCase();
+  const statusMap = {
+    'pending': 'Pending',
+    'open': 'Open',
+    'paid': 'Paid',
+    'cancelled': 'Cancelled',
+    'due': 'Due',
+  };
+  return statusMap[statusLower] || 'Pending';
+};
+
 const EMPTY_FORM = {
   customerId: '',
   employeeId: '',
@@ -90,6 +104,9 @@ export default function ServiceInvoicesPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [showDeadlineAlert, setShowDeadlineAlert] = useState(false);
+  const [upcomingInvoices, setUpcomingInvoices] = useState([]);
 
   const [customers, setCustomers] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -141,20 +158,44 @@ export default function ServiceInvoicesPage() {
     }
   }, [serviceSearch]);
 
+  const checkUpcomingDeadlines = useCallback((invoices) => {
+    const now = dayjs();
+    const upcoming = invoices.filter(inv => {
+      if (!inv.invoiceDate) return false;
+      const invoiceDate = dayjs(inv.invoiceDate);
+      const daysUntilDue = invoiceDate.diff(now, 'day');
+      const dueDateStatus = inv.paymentStatus || inv.status;
+      // Show notification for invoices due within 7 days that are not yet paid
+      return daysUntilDue > 0 && daysUntilDue <= 7 && !['Paid', 'paid'].includes(dueDateStatus);
+    });
+    if (upcoming.length > 0) {
+      setUpcomingInvoices(upcoming);
+      setShowDeadlineAlert(true);
+    }
+  }, []);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getInvoices({ page: page + 1, limit: rowsPerPage, search, invoiceType: 'service' });
+      const params = { page: page + 1, limit: rowsPerPage, search, invoiceType: 'service' };
+      if (statusFilter) {
+        params.paymentStatus = statusFilter.toLowerCase();
+      }
+      const res = await getInvoices(params);
       const d = res.data?.data || res.data;
       const items = Array.isArray(d) ? d : d?.items || d?.invoices || [];
       setRows(items);
       setTotal(res.data?.total || res.data?.pagination?.total || items.length);
+      // Check for upcoming deadlines
+      if (page === 0) {
+        checkUpcomingDeadlines(items);
+      }
     } catch {
       enqueueSnackbar('Failed to load service invoices', { variant: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, search, enqueueSnackbar]);
+  }, [page, rowsPerPage, search, statusFilter, enqueueSnackbar, checkUpcomingDeadlines]);
 
   useEffect(() => { fetchLookups(); }, [fetchLookups]);
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -177,7 +218,7 @@ export default function ServiceInvoicesPage() {
       discountType: row.discountType || 'fixed',
       discountAmount: row.discountAmount || 0,
       vatType: row.vatType || 'exclusive',
-      paymentStatus: row.paymentStatus || row.status || 'Pending',
+      paymentStatus: normalizeStatus(row.paymentStatus || row.status || 'Pending'),
     });
     setEditId(row._id || row.id);
     setFormOpen(true);
@@ -239,14 +280,33 @@ export default function ServiceInvoicesPage() {
     if (pendingAction === 'save') {
       setFormLoading(true);
       try {
+        // Normalize payment status to lowercase
+        const normalizedStatus = formData.paymentStatus.toLowerCase();
+        
+        // Map items to backend schema: serviceId -> service, qty -> quantity, unitPrice -> price
+        const mappedItems = formData.items.map(item => ({
+          service: item.serviceId,
+          itemName: item.serviceName,
+          quantity: item.qty || 1,
+          price: item.unitPrice || 0,
+          subtotal: (item.unitPrice || 0) * (item.qty || 1),
+        }));
+
         const payload = {
-          ...formData,
+          customerId: formData.customerId,
+          employeeId: formData.employeeId,
+          storeBranchId: formData.storeBranchId,
           invoiceDate: formData.invoiceDate?.toISOString(),
+          notes: formData.notes,
+          items: mappedItems,
+          paymentStatus: normalizedStatus,
           subtotal,
           discount,
+          discountType: formData.discountType,
           vatAmount,
+          vatType: formData.vatType,
           total: grandTotal,
-          type: 'service',
+          invoiceType: 'service',
         };
         if (editId) {
           await updateInvoice(editId, payload);
@@ -256,6 +316,7 @@ export default function ServiceInvoicesPage() {
           enqueueSnackbar('Invoice created', { variant: 'success' });
         }
         setFormOpen(false);
+        setPage(0);
         fetchData();
       } catch (err) {
         enqueueSnackbar(err?.response?.data?.message || 'Save failed', { variant: 'error' });
@@ -276,7 +337,12 @@ export default function ServiceInvoicesPage() {
   };
 
   const handleViewInvoice = async (row) => {
-    setViewInvoice(row);
+    // Normalize status for display
+    const normalizedRow = {
+      ...row,
+      paymentStatus: normalizeStatus(row.paymentStatus || row.status),
+    };
+    setViewInvoice(normalizedRow);
     setViewOpen(true);
     try {
       const res = await getInvoiceQR(row._id || row.id);
@@ -288,7 +354,9 @@ export default function ServiceInvoicesPage() {
 
   const handleStatusChange = async (id, status) => {
     try {
-      await updateInvoiceStatus(id, status);
+      // Convert capitalized status to lowercase for API
+      const lowercaseStatus = status.charAt(0).toLowerCase() + status.slice(1).toLowerCase();
+      await updateInvoiceStatus(id, lowercaseStatus);
       enqueueSnackbar('Status updated', { variant: 'success' });
       fetchData();
     } catch {
@@ -308,12 +376,13 @@ export default function ServiceInvoicesPage() {
       field: 'paymentStatus',
       headerName: 'Status',
       renderCell: ({ row }) => {
-        const status = row.paymentStatus || row.status || 'Pending';
+        const rawStatus = row.paymentStatus || row.status || 'Pending';
+        const status = normalizeStatus(rawStatus);
         return (
           <Select
             size="small"
             value={status}
-            onChange={(e) => handleStatusChange(row._id || row.id, e.target.value)}
+            onChange={(e) => handleStatusChange(row._id || row.id, e.target.value.toLowerCase())}
             variant="standard"
             disableUnderline
             renderValue={(v) => (
@@ -362,13 +431,17 @@ export default function ServiceInvoicesPage() {
     },
   ];
 
-  const invoiceStats = React.useMemo(() => ({
-    total: total,
-    paid: rows.filter(r => ['Paid','paid'].includes(r.paymentStatus || r.status)).length,
-    pending: rows.filter(r => ['Pending','pending'].includes(r.paymentStatus || r.status)).length,
-    overdue: rows.filter(r => ['Due','due','Overdue','overdue'].includes(r.paymentStatus || r.status)).length,
-    totalAmount: rows.reduce((s, r) => s + (r.total || r.totalAmount || 0), 0),
-  }), [rows, total]);
+  const invoiceStats = React.useMemo(() => {
+    // Normalize statuses for counting
+    const normalizeForCompare = (status) => String(status || '').toLowerCase();
+    return {
+      total: total,
+      paid: rows.filter(r => normalizeForCompare(r.paymentStatus || r.status) === 'paid').length,
+      pending: rows.filter(r => normalizeForCompare(r.paymentStatus || r.status) === 'pending').length,
+      overdue: rows.filter(r => ['due', 'overdue'].includes(normalizeForCompare(r.paymentStatus || r.status))).length,
+      totalAmount: rows.reduce((s, r) => s + (r.total || r.totalAmount || 0), 0),
+    };
+  }, [rows, total]);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -402,6 +475,54 @@ export default function ServiceInvoicesPage() {
           ))}
         </Grid>
 
+        {showDeadlineAlert && upcomingInvoices.length > 0 && (
+          <Paper sx={{ p: 2, mb: 2.5, bgcolor: '#fff3cd', border: '1px solid #ffc107', borderRadius: 1 }}>
+            <Stack direction="row" spacing={2} alignItems="flex-start">
+              <Box sx={{ color: '#856404', fontSize: '1.5rem' }}>⏰</Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#856404' }}>
+                  {upcomingInvoices.length} Invoice{upcomingInvoices.length !== 1 ? 's' : ''} Due Soon
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#856404', mt: 0.5 }}>
+                  {upcomingInvoices.slice(0, 3).map(inv => `${inv.customer?.name || 'Unknown'}`).join(', ')}
+                  {upcomingInvoices.length > 3 ? ` and ${upcomingInvoices.length - 3} more` : ''}
+                </Typography>
+              </Box>
+              <IconButton size="small" onClick={() => setShowDeadlineAlert(false)}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Stack>
+          </Paper>
+        )}
+
+        <Paper sx={{ mb: 2, p: 2 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <TextField
+              placeholder="Search invoices…"
+              size="small"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
+              }}
+              sx={{ flex: 1 }}
+            />
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>Filter by Status</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Filter by Status"
+                onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+              >
+                <MenuItem value="">All Status</MenuItem>
+                {Object.keys(STATUS_COLORS).map((s) => (
+                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+        </Paper>
+
         <DataTable
           columns={columns}
           rows={rows}
@@ -411,8 +532,8 @@ export default function ServiceInvoicesPage() {
           total={total}
           onPageChange={(_, p) => setPage(p)}
           onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
-          searchValue={search}
-          onSearchChange={(v) => { setSearch(v); setPage(0); }}
+          searchValue=""
+          onSearchChange={() => {}}
         />
 
         <FormDialog

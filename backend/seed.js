@@ -206,7 +206,7 @@ async function main() {
     { name: 'Nescafé 3-in-1 (30 sachets)', category: categories[3]._id, brand: brands[9]._id, status: 'Active' },
     { name: 'Samsung Galaxy Buds Pro', category: categories[0]._id, brand: brands[0]._id, status: 'Active' },
     { name: 'Apple Watch Series 9', category: categories[6]._id, brand: brands[1]._id, status: 'Active' },
-    { name: 'Pilot G-2 Pen (box)', category: categories[7]._id, status: 'Active' },
+    { name: 'Pilot G-2 Pen (box)', category: categories[7]._id, brand: brands[0]._id, status: 'Active' },
   ]);
   console.log(`   ✓ ${productNames.length} product names\n`);
 

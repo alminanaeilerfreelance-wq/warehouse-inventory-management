@@ -72,6 +72,20 @@ const STATUS_COLORS = {
   Due: 'error',
 };
 
+// Helper to normalize status values from database (lowercase) to UI format (capitalized)
+const normalizeStatus = (status) => {
+  if (!status) return 'Pending';
+  const statusLower = String(status).toLowerCase();
+  const statusMap = {
+    'pending': 'Pending',
+    'open': 'Open',
+    'paid': 'Paid',
+    'cancelled': 'Cancelled',
+    'due': 'Due',
+  };
+  return statusMap[statusLower] || 'Pending';
+};
+
 const EMPTY_FORM = {
   customerId: '',
   employeeId: '',
@@ -197,14 +211,27 @@ export default function CustomerInvoicesPage() {
     const id = inv._id || inv.id;
     setFormData((p) => {
       if (p.items.find((it) => it.inventoryId === id)) return p;
+      
+      // Safely extract product name from nested objects
+      let productName = 'Unknown';
+      if (typeof inv.product === 'string') {
+        productName = inv.product;
+      } else if (typeof inv.product === 'object' && inv.product?.name) {
+        productName = inv.product.name;
+      } else if (typeof inv.productName === 'string') {
+        productName = inv.productName;
+      } else if (typeof inv.productName === 'object' && inv.productName?.name) {
+        productName = inv.productName.name;
+      }
+      
       return {
         ...p,
         items: [
           ...p.items,
           {
             inventoryId: id,
-            productName: inv.product?.name || inv.productName || 'Unknown',
-            unitPrice: inv.srp || 0,
+            productName: String(productName),
+            unitPrice: inv.srp || inv.unitPrice || 0,
             qty: 1,
           },
         ],
@@ -236,50 +263,68 @@ export default function CustomerInvoicesPage() {
   const grandTotal =
     formData.vatType === 'exclusive' ? afterDiscount + vatAmount : afterDiscount;
 
-  const handleFormSubmit = () => {
+  const handleFormSubmit = async () => {
     if (!formData.customerId) { enqueueSnackbar('Customer is required', { variant: 'warning' }); return; }
-    setPendingAction('save');
-    setAdminOpen(true);
+    setFormLoading(true);
+    try {
+      const payload = {
+        invoiceType: 'customer',
+        customerId: formData.customerId,
+        employeeId: formData.employeeId || undefined,
+        storeBranchId: formData.storeBranchId || undefined,
+        items: formData.items.map((item) => ({
+          inventory: item.inventoryId,
+          itemName: item.productName,
+          quantity: item.qty,
+          price: item.unitPrice,
+        })),
+        notes: formData.notes,
+        discountType: formData.discountType,
+        discount,
+        vatType: formData.vatType,
+        vatRate: 0.12,
+        subtotal,
+        vatAmount,
+        total: grandTotal,
+      };
+
+      // Add calendar event data if enabled
+      if (formData.enableCalendar && formData.calendarDate) {
+        payload.calendarDate = formData.calendarDate.toISOString();
+        payload.calendarTitle = formData.calendarTitle || `Invoice-${dayjs().format('MMDD')}`;
+      }
+      if (editId) {
+        await updateInvoice(editId, payload);
+        enqueueSnackbar('Invoice updated', { variant: 'success' });
+      } else {
+        await createInvoice(payload);
+        enqueueSnackbar('Invoice created', { variant: 'success' });
+      }
+      setFormOpen(false);
+      setFormData(EMPTY_FORM);
+      setEditId(null);
+      fetchData();
+    } catch (err) {
+      enqueueSnackbar(err?.response?.data?.message || 'Save failed', { variant: 'error' });
+    } finally {
+      setFormLoading(false);
+    }
   };
 
   const handleAdminConfirm = async () => {
-    if (pendingAction === 'save') {
+    if (pendingAction === 'delete') {
       setFormLoading(true);
-      try {
-        const payload = {
-          ...formData,
-          invoiceDate: formData.invoiceDate?.toISOString(),
-          calendarDate: formData.enableCalendar && formData.calendarDate ? formData.calendarDate.toISOString() : null,
-          calendarTitle: formData.enableCalendar ? formData.calendarTitle : '',
-          subtotal,
-          discount,
-          vatAmount,
-          total: grandTotal,
-          type: 'customer',
-        };
-        if (editId) {
-          await updateInvoice(editId, payload);
-          enqueueSnackbar('Invoice updated', { variant: 'success' });
-        } else {
-          await createInvoice(payload);
-          enqueueSnackbar('Invoice created', { variant: 'success' });
-        }
-        setFormOpen(false);
-        fetchData();
-      } catch (err) {
-        enqueueSnackbar(err?.response?.data?.message || 'Save failed', { variant: 'error' });
-        throw err;
-      } finally {
-        setFormLoading(false);
-      }
-    } else if (pendingAction === 'delete') {
       try {
         await deleteInvoice(deleteId);
         enqueueSnackbar('Invoice deleted', { variant: 'success' });
         fetchData();
+        setAdminOpen(false);
+        setDeleteId(null);
+        setPendingAction(null);
       } catch (err) {
         enqueueSnackbar(err?.response?.data?.message || 'Delete failed', { variant: 'error' });
-        throw err;
+      } finally {
+        setFormLoading(false);
       }
     }
   };
@@ -297,27 +342,37 @@ export default function CustomerInvoicesPage() {
 
   const handleStatusChange = async (id, status) => {
     try {
-      await updateInvoiceStatus(id, status);
+      // Convert capitalized status (e.g., "Paid") to lowercase (e.g., "paid") for backend
+      const lowercaseStatus = status.charAt(0).toLowerCase() + status.slice(1).toLowerCase();
+      await updateInvoiceStatus(id, lowercaseStatus);
       enqueueSnackbar('Status updated', { variant: 'success' });
       fetchData();
     } catch {
       enqueueSnackbar('Status update failed', { variant: 'error' });
     }
   };
-
   const columns = [
-    { field: 'invoiceNo', headerName: 'Invoice No', renderCell: ({ row }) => row.invoiceNo || row.invoice_no || '—' },
-    { field: 'customer', headerName: 'Customer', renderCell: ({ row }) => row.customer?.name || row.customerName || '—' },
-    { field: 'employee', headerName: 'Employee', renderCell: ({ row }) => row.employee?.name || row.employeeName || '—' },
-    { field: 'storeBranch', headerName: 'Branch', renderCell: ({ row }) => row.storeBranch?.name || row.branchName || '—' },
-    { field: 'subtotal', headerName: 'Subtotal', renderCell: ({ row }) => fmt(row.subtotal) },
-    { field: 'total', headerName: 'Total', renderCell: ({ row }) => fmt(row.total) },
-    { field: 'vatAmount', headerName: 'VAT', renderCell: ({ row }) => fmt(row.vatAmount) },
+    { field: 'invoiceNo', headerName: 'Invoice No', renderCell: ({ row }) => String(row.invoiceNo || row.invoice_no || '—') },
+    { field: 'customer', headerName: 'Customer', renderCell: ({ row }) => {
+      const c = row.customer;
+      return String((typeof c === 'string' ? c : c?.name) || row.customerName || '—');
+    }},
+    { field: 'employee', headerName: 'Employee', renderCell: ({ row }) => {
+      const e = row.employee;
+      return String((typeof e === 'string' ? e : e?.name) || row.employeeName || '—');
+    }},
+    { field: 'storeBranch', headerName: 'Branch', renderCell: ({ row }) => {
+      const b = row.storeBranch;
+      return String((typeof b === 'string' ? b : b?.name) || row.branchName || '—');
+    }},
+    { field: 'subtotal', headerName: 'Subtotal', renderCell: ({ row }) => fmt(row.subtotal || 0) },
+    { field: 'total', headerName: 'Total', renderCell: ({ row }) => fmt(row.total || 0) },
+    { field: 'vatAmount', headerName: 'VAT', renderCell: ({ row }) => fmt(row.vatAmount || 0) },
     {
       field: 'paymentStatus',
       headerName: 'Status',
       renderCell: ({ row }) => {
-        const status = row.paymentStatus || row.status || 'Pending';
+        const status = normalizeStatus(row.paymentStatus || row.status);
         return (
           <Select
             size="small"
@@ -337,7 +392,14 @@ export default function CustomerInvoicesPage() {
         );
       },
     },
-    { field: 'invoiceDate', headerName: 'Date', renderCell: ({ row }) => row.invoiceDate ? dayjs(row.invoiceDate).format('MMM DD, YYYY') : '—' },
+    { 
+      field: 'invoiceDate', 
+      headerName: 'Date', 
+      renderCell: ({ row }) => {
+        const date = row.invoiceDate || row.invoice_date || row.createdAt;
+        return date ? dayjs(date).format('MMM DD, YYYY') : '—';
+      }
+    },
     {
       field: 'actions',
       headerName: 'Actions',
@@ -370,7 +432,6 @@ export default function CustomerInvoicesPage() {
       ),
     },
   ];
-
   const nameOf = (arr, id) => arr.find((x) => (x._id || x.id) === id)?.name || '—';
 
   const invoiceStats = React.useMemo(() => ({
@@ -442,9 +503,10 @@ export default function CustomerInvoicesPage() {
                 <InputLabel>Customer</InputLabel>
                 <Select value={formData.customerId} label="Customer" onChange={setF('customerId')}>
                   <MenuItem value=""><em>None</em></MenuItem>
-                  {customers.map((c) => (
-                    <MenuItem key={c._id || c.id} value={c._id || c.id}>{c.name}</MenuItem>
-                  ))}
+                  {customers.map((c) => {
+                    const name = String(c?.name || c?.companyName || '—');
+                    return <MenuItem key={c._id || c.id} value={c._id || c.id}>{name}</MenuItem>;
+                  })}
                 </Select>
               </FormControl>
             </Grid>
@@ -453,9 +515,10 @@ export default function CustomerInvoicesPage() {
                 <InputLabel>Employee</InputLabel>
                 <Select value={formData.employeeId} label="Employee" onChange={setF('employeeId')}>
                   <MenuItem value=""><em>None</em></MenuItem>
-                  {employees.map((e) => (
-                    <MenuItem key={e._id || e.id} value={e._id || e.id}>{e.name}</MenuItem>
-                  ))}
+                  {employees.map((e) => {
+                    const name = String(e?.name || e?.firstName || '—');
+                    return <MenuItem key={e._id || e.id} value={e._id || e.id}>{name}</MenuItem>;
+                  })}
                 </Select>
               </FormControl>
             </Grid>
@@ -464,9 +527,10 @@ export default function CustomerInvoicesPage() {
                 <InputLabel>Store Branch</InputLabel>
                 <Select value={formData.storeBranchId} label="Store Branch" onChange={setF('storeBranchId')}>
                   <MenuItem value=""><em>None</em></MenuItem>
-                  {storeBranches.map((b) => (
-                    <MenuItem key={b._id || b.id} value={b._id || b.id}>{b.name}</MenuItem>
-                  ))}
+                  {storeBranches.map((b) => {
+                    const name = String(b?.name || b?.branchName || '—');
+                    return <MenuItem key={b._id || b.id} value={b._id || b.id}>{name}</MenuItem>;
+                  })}
                 </Select>
               </FormControl>
             </Grid>
@@ -547,17 +611,34 @@ export default function CustomerInvoicesPage() {
                 sx={{ mb: 1, minWidth: 260 }}
               />
               <Box sx={{ maxHeight: 140, overflowY: 'auto', mb: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
-                {inventoryItems.map((inv) => (
-                  <Box
-                    key={inv._id || inv.id}
-                    sx={{ p: 0.75, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, borderRadius: 0.5 }}
-                    onClick={() => addItemToCart(inv)}
-                  >
-                    <Typography variant="body2">
-                      {inv.product?.name || inv.productName || 'Unknown'} — SRP: {fmt(inv.srp)} — Qty: {inv.quantity}
-                    </Typography>
-                  </Box>
-                ))}
+                {inventoryItems.map((inv) => {
+                  // Safely extract product name from nested objects
+                  let prodName = 'Unknown';
+                  if (typeof inv.product === 'string') {
+                    prodName = inv.product;
+                  } else if (typeof inv.product === 'object' && inv.product?.name) {
+                    prodName = inv.product.name;
+                  } else if (typeof inv.productName === 'string') {
+                    prodName = inv.productName;
+                  } else if (typeof inv.productName === 'object' && inv.productName?.name) {
+                    prodName = inv.productName.name;
+                  }
+                  
+                  const prodSRP = inv.srp || inv.unitPrice || 0;
+                  const prodQty = inv.quantity || 0;
+                  
+                  return (
+                    <Box
+                      key={inv._id || inv.id}
+                      sx={{ p: 0.75, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, borderRadius: 0.5 }}
+                      onClick={() => addItemToCart(inv)}
+                    >
+                      <Typography variant="body2">
+                        {String(prodName)} — SRP: {fmt(prodSRP)} — Qty: {prodQty}
+                      </Typography>
+                    </Box>
+                  );
+                })}
               </Box>
 
               <TableContainer component={Paper} variant="outlined">
@@ -581,14 +662,14 @@ export default function CustomerInvoicesPage() {
                     ) : (
                       formData.items.map((it, idx) => (
                         <TableRow key={idx}>
-                          <TableCell>{it.productName}</TableCell>
+                          <TableCell>{String(it?.productName || '—')}</TableCell>
                           <TableCell>
-                            <TextField size="small" type="number" value={it.unitPrice}
+                            <TextField size="small" type="number" value={it?.unitPrice || 0}
                               onChange={(e) => updateItem(idx, 'unitPrice', Number(e.target.value))}
                               inputProps={{ min: 0, style: { width: 80 } }} />
                           </TableCell>
                           <TableCell>
-                            <TextField size="small" type="number" value={it.qty}
+                            <TextField size="small" type="number" value={it?.qty || 1}
                               onChange={(e) => updateItem(idx, 'qty', Number(e.target.value))}
                               inputProps={{ min: 1, style: { width: 60 } }} />
                           </TableCell>
@@ -686,17 +767,15 @@ export default function CustomerInvoicesPage() {
           </DialogContent>
         </Dialog>
 
-        <AdminConfirmDialog
-          open={adminOpen}
-          onClose={() => setAdminOpen(false)}
-          onConfirm={handleAdminConfirm}
-          title={pendingAction === 'delete' ? 'Delete Invoice' : 'Admin Confirmation'}
-          description={
-            pendingAction === 'delete'
-              ? 'Enter admin password to delete this invoice.'
-              : 'Enter admin password to save this invoice.'
-          }
-        />
+        {pendingAction === 'delete' && (
+          <AdminConfirmDialog
+            open={adminOpen}
+            onClose={() => { setAdminOpen(false); setDeleteId(null); setPendingAction(null); }}
+            onConfirm={handleAdminConfirm}
+            title="Delete Invoice"
+            description="Enter admin password to delete this invoice."
+          />
+        )}
       </MainLayout>
     </LocalizationProvider>
   );

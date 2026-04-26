@@ -392,76 +392,59 @@ export default function LoginPage() {
             >
               Try a Demo Account
             </Typography>
-            <Stack direction="row" spacing={1.5}>
-              <Tooltip title="Login as Admin — full access to all modules" arrow>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  size="small"
+            <Stack direction="row" spacing={1}>
+              <Tooltip title="Click to login as Admin (full access)" arrow>
+                <Chip
+                  icon={
+                    demoLoading === 'admin' ? (
+                      <CircularProgress size={16} />
+                    ) : (
+                      <AdminPanelSettingsIcon />
+                    )
+                  }
+                  label="admin / admin123"
                   onClick={() => handleDemoLogin('admin')}
                   disabled={isFormDisabled}
-                  startIcon={
-                    demoLoading === 'admin' ? (
-                      <CircularProgress size={14} color="inherit" />
+                  clickable
+                  variant="filled"
+                  sx={{
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    fontWeight: 600,
+                    cursor: isFormDisabled ? 'not-allowed' : 'pointer',
+                    bgcolor: '#1565c0',
+                    color: '#fff',
+                    '&:hover': { bgcolor: '#0d47a1' },
+                    '&.Mui-disabled': { opacity: 0.6 },
+                  }}
+                />
+              </Tooltip>
+              <Tooltip title="Click to login as User (view-only)" arrow>
+                <Chip
+                  icon={
+                    demoLoading === 'user' ? (
+                      <CircularProgress size={16} />
                     ) : (
-                      <AdminPanelSettingsIcon fontSize="small" />
+                      <PersonIcon />
                     )
                   }
-                  sx={{
-                    py: 1,
-                    borderRadius: 2,
-                    bgcolor: '#1565c0',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    textTransform: 'none',
-                    '&:hover': { bgcolor: '#0d47a1' },
-                  }}
-                >
-                  Admin Demo
-                </Button>
-              </Tooltip>
-              <Tooltip title="Login as User — view-only access" arrow>
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  size="small"
+                  label="demo_user / user123"
                   onClick={() => handleDemoLogin('user')}
                   disabled={isFormDisabled}
-                  startIcon={
-                    demoLoading === 'user' ? (
-                      <CircularProgress size={14} color="inherit" />
-                    ) : (
-                      <PersonIcon fontSize="small" />
-                    )
-                  }
+                  clickable
+                  variant="outlined"
                   sx={{
-                    py: 1,
-                    borderRadius: 2,
-                    fontWeight: 700,
-                    fontSize: 13,
-                    textTransform: 'none',
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                    fontWeight: 600,
+                    cursor: isFormDisabled ? 'not-allowed' : 'pointer',
                     borderColor: '#1565c0',
                     color: '#1565c0',
                     '&:hover': { bgcolor: '#e3f0ff', borderColor: '#0d47a1' },
+                    '&.Mui-disabled': { opacity: 0.6 },
                   }}
-                >
-                  User Demo
-                </Button>
+                />
               </Tooltip>
-            </Stack>
-            <Stack direction="row" spacing={1} mt={1.5}>
-              <Chip
-                size="small"
-                label="admin / admin123"
-                variant="outlined"
-                sx={{ fontSize: 11, fontFamily: 'monospace', borderRadius: 1 }}
-              />
-              <Chip
-                size="small"
-                label="demo_user / user123"
-                variant="outlined"
-                sx={{ fontSize: 11, fontFamily: 'monospace', borderRadius: 1 }}
-              />
             </Stack>
           </Box>
 

@@ -1,0 +1,10 @@
+{
+  "/_app": "pages/_app.js",
+  "/_error": "pages/_error.js",
+  "/_document": "pages/_document.js",
+  "/invoices/service": "pages/invoices/service.js",
+  "/dashboard": "pages/dashboard.js",
+  "/invoices/purchase-orders": "pages/invoices/purchase-orders.js",
+  "/invoices/customer": "pages/invoices/customer.js",
+  "/login": "pages/login.js"
+}

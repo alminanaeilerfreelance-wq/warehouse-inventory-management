@@ -64,7 +64,7 @@ export const getInventory = (params) => api.get('/inventory', { params });
 export const createInventory = (data) => api.post('/inventory', data);
 export const updateInventory = (id, data) => api.put(`/inventory/${id}`, data);
 export const deleteInventory = (id) => api.delete(`/inventory/${id}`);
-export const exportInventory = () => api.get('/inventory/export', { responseType: 'blob' });
+export const exportInventory = () => api.post('/inventory/export/excel', {}, { responseType: 'blob' });
 
 // ─── Invoices ────────────────────────────────────────────────────────────────
 export const getInvoices = (params) => api.get('/invoices', { params });
@@ -72,7 +72,7 @@ export const createInvoice = (data) => api.post('/invoices', data);
 export const updateInvoice = (id, data) => api.put(`/invoices/${id}`, data);
 export const deleteInvoice = (id) => api.delete(`/invoices/${id}`);
 export const updateInvoiceStatus = (id, status) =>
-  api.put(`/invoices/${id}/status`, { status });
+  api.put(`/invoices/${id}/status`, { paymentStatus: status });
 export const getInvoiceQR = (id) => api.get(`/invoices/${id}/qr`);
 
 // ─── Purchase Orders ─────────────────────────────────────────────────────────
@@ -97,6 +97,11 @@ export const updateGeneralSettings = (data) => api.put('/settings/general', data
 export const getAdjustments = (params) => api.get('/adjustments', { params });
 export const createAdjustment = (data) => api.post('/adjustments', data);
 export const getAdjustmentQR = (id) => api.get(`/adjustments/${id}/qr`);
+export const deleteAdjustment = (id, data) => api.request({
+  method: 'delete',
+  url: `/adjustments/${id}`,
+  data
+});
 
 // ─── Low Stock ───────────────────────────────────────────────────────────────
 export const getLowStock = () => api.get('/inventory/low-stock');
