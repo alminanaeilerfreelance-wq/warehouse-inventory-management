@@ -24,15 +24,20 @@ self.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/dashboard.js"
     ],
-    "/invoices/customer": [
+    "/invoices/payments": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/invoices/customer.js"
+      "static/chunks/pages/invoices/payments.js"
     ],
     "/invoices/purchase-orders": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
       "static/chunks/pages/invoices/purchase-orders.js"
+    ],
+    "/invoices/return-orders": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/invoices/return-orders.js"
     ],
     "/invoices/service": [
       "static/chunks/webpack.js",
