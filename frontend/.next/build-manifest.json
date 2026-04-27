@@ -22,15 +22,25 @@
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
+    "/invoices/customer": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/invoices/customer.js"
+    ],
     "/invoices/purchase-orders": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
       "static/chunks/pages/invoices/purchase-orders.js"
     ],
-    "/invoices/return-orders": [
+    "/reports/sales": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/invoices/return-orders.js"
+      "static/chunks/pages/reports/sales.js"
+    ],
+    "/reports/services": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/reports/services.js"
     ]
   },
   "ampFirstPages": []

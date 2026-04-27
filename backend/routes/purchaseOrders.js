@@ -62,9 +62,51 @@ router.get('/:id', protect, async (req, res) => {
 // POST /api/purchase-orders — create PO
 router.post('/', protect, async (req, res) => {
   try {
-    const { supplierId, supplier, warehouseId, warehouse, employeeId, employee, items = [], notes, type = 'purchase', vatType, vatAmount } = req.body;
+    const { invoiceNo, supplierId, supplier, warehouseId, warehouse, employeeId, employee, items = [], notes, type = 'purchase', vatType, vatAmount } = req.body;
 
-    const invoiceNo = generateInvoiceNo();
+    // Input validation
+    if (!invoiceNo || String(invoiceNo).trim().length === 0) {
+      return res.status(400).json({ message: 'Invoice number is required' });
+    }
+
+    if (!supplierId && !supplier) {
+      return res.status(400).json({ message: 'Supplier is required' });
+    }
+
+    if (!warehouseId && !warehouse) {
+      return res.status(400).json({ message: 'Warehouse is required' });
+    }
+
+    if (!employeeId && !employee) {
+      return res.status(400).json({ message: 'Employee is required' });
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Purchase order must have at least one item' });
+    }
+
+    // Validate each item
+    for (let item of items) {
+      if (!item.productNameId && !item.productName) {
+        return res.status(400).json({ message: 'All items must have a product' });
+      }
+
+      const price = Number(item.price) || 0;
+      const qty = Number(item.qty) || 0;
+
+      if (price <= 0) {
+        return res.status(400).json({ message: 'Item unit price must be greater than 0' });
+      }
+
+      if (qty <= 0) {
+        return res.status(400).json({ message: 'Item quantity must be greater than 0' });
+      }
+    }
+
+    // Validate VAT amount if provided
+    if (vatAmount !== undefined && isNaN(Number(vatAmount))) {
+      return res.status(400).json({ message: 'VAT amount must be a valid number' });
+    }
 
     // Calculate subtotal and totalAmount from items
     const processedItems = items.map((item) => ({

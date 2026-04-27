@@ -2,6 +2,10 @@ import React, { useState, useCallback, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Divider from '@mui/material/Divider';
 import FormControl from '@mui/material/FormControl';
 import Grid from '@mui/material/Grid';
@@ -64,6 +68,7 @@ export default function SalesReportPage() {
   const [summaryTotals, setSummaryTotals] = useState(null);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
 
   const printRef = useRef();
   const handlePrint = useReactToPrint({ content: () => printRef.current });
@@ -148,7 +153,7 @@ export default function SalesReportPage() {
           breadcrumbs={[{ label: 'Reports' }, { label: 'Sales Report' }]}
           actions={generated ? (
             <>
-              <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={handlePrint}>Print / PDF</Button>
+              <Button variant="contained" size="small" startIcon={<PrintIcon />} onClick={() => setPrintPreviewOpen(true)} sx={{ bgcolor: '#1565c0' }}>Print Preview</Button>
               <Button variant="outlined" size="small" startIcon={<FileDownloadIcon />} onClick={handleExportExcel}>Excel</Button>
             </>
           ) : null}
@@ -301,6 +306,106 @@ export default function SalesReportPage() {
                 preparedBy={user?.username || user?.customerName || user?.name || ''}
               />
             </Box>
+
+            {/* Print Preview Dialog */}
+            <Dialog open={printPreviewOpen} onClose={() => setPrintPreviewOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 700 }}>Sales Report Preview</DialogTitle>
+              <DialogContent dividers sx={{ maxHeight: '70vh', overflow: 'auto', bgcolor: '#f9f9f9', p: 3 }}>
+                <Box sx={{ bgcolor: 'white', p: 3, borderRadius: 1, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  {/* Company Header */}
+                  <Box sx={{ textAlign: 'center', mb: 3, pb: 2, borderBottom: '2px solid #2c3e50' }}>
+                    <Typography variant="h6" fontWeight={700} sx={{ color: '#2c3e50', mb: 0.5 }}>
+                      {company?.name || 'Company Name'}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                      {company?.address || 'Address'}
+                    </Typography>
+                    {company?.tinNo && (
+                      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                        TIN: {company.tinNo}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {/* Report Title and Date Range */}
+                  <Box sx={{ textAlign: 'center', mb: 3, pb: 2, borderBottom: '2px solid #ecf0f1' }}>
+                    <Typography variant="h5" fontWeight={700} sx={{ color: '#1565c0', mb: 1 }}>
+                      SALES REPORT
+                    </Typography>
+                    <Typography variant="body2">
+                      {dateFrom?.format('MMM DD, YYYY')} to {dateTo?.format('MMM DD, YYYY')}
+                    </Typography>
+                    {branchId && (
+                      <Typography variant="body2">
+                        Branch: {branches.find((b) => (b._id || b.id) === branchId)?.name}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {/* Report Data Table */}
+                  <Table size="small" sx={{ mb: 2 }}>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: '#ecf0f1' }}>
+                        <TableCell sx={{ fontWeight: 700, color: '#2c3e50' }}>Date</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#2c3e50' }}>Invoice No</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#2c3e50' }}>Customer</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#2c3e50' }}>Branch</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50' }}>Subtotal</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50' }}>VAT</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50' }}>Total</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#2c3e50' }}>Status</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {reportData.map((row, idx) => (
+                        <TableRow key={row._id || row.id || idx} sx={{ '&:nth-of-type(even)': { bgcolor: '#f8f9fa' } }}>
+                          <TableCell sx={{ py: 1.5 }}>{row.invoiceDate || row.date ? dayjs(row.invoiceDate || row.date).format('MMM DD, YYYY') : '—'}</TableCell>
+                          <TableCell sx={{ py: 1.5 }}>{row.invoiceNo || row.invoice_no || '—'}</TableCell>
+                          <TableCell sx={{ py: 1.5 }}>{row.customer?.name || row.customerName || '—'}</TableCell>
+                          <TableCell sx={{ py: 1.5 }}>{row.storeBranch?.name || row.branchName || '—'}</TableCell>
+                          <TableCell align="right" sx={{ py: 1.5 }}>₱{fmt(row.subtotal)}</TableCell>
+                          <TableCell align="right" sx={{ py: 1.5 }}>₱{fmt(row.vatAmount)}</TableCell>
+                          <TableCell align="right" sx={{ py: 1.5, fontWeight: 600 }}>₱{fmt(row.total)}</TableCell>
+                          <TableCell sx={{ py: 1.5 }}>
+                            <Chip
+                              label={row.paymentStatus || row.status || 'Pending'}
+                              size="small"
+                              color={STATUS_COLORS[row.paymentStatus || row.status] || 'default'}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {/* Totals Row */}
+                      <TableRow sx={{ bgcolor: '#e3f2fd', fontWeight: 700 }}>
+                        <TableCell colSpan={4} sx={{ fontWeight: 700, py: 1.5 }}>TOTALS</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, py: 1.5 }}>₱{fmt(totals.subtotal)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, py: 1.5 }}>₱{fmt(totals.vatAmount)}</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, py: 1.5, color: '#1565c0' }}>₱{fmt(totals.total)}</TableCell>
+                        <TableCell />
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+
+                  {/* Summary */}
+                  <Box sx={{ mt: 3, p: 2, bgcolor: '#f0f0f0', borderRadius: 1 }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <Typography variant="body2">Prepared By: <strong>{user?.username || user?.customerName || user?.name || '—'}</strong></Typography>
+                      </Grid>
+                      <Grid item xs={12} sm={6} sx={{ textAlign: 'right' }}>
+                        <Typography variant="body2">Generated: <strong>{dayjs().format('MMM DD, YYYY HH:mm')}</strong></Typography>
+                      </Grid>
+                    </Grid>
+                  </Box>
+                </Box>
+              </DialogContent>
+              <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+                <Button onClick={() => setPrintPreviewOpen(false)} variant="outlined">Close</Button>
+                <Button onClick={handlePrint} variant="contained" color="primary" startIcon={<PrintIcon />}>
+                  Print / PDF
+                </Button>
+              </DialogActions>
+            </Dialog>
           </>
         )}
       </MainLayout>

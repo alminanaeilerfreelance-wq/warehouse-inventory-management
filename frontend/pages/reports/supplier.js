@@ -2,6 +2,10 @@ import React, { useState, useCallback, useRef } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import FormControl from '@mui/material/FormControl';
 import Grid from '@mui/material/Grid';
@@ -62,6 +66,7 @@ export default function SupplierReportPage() {
   const [summaryTotals, setSummaryTotals] = useState(null);
   const [loading, setLoading] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false);
 
   const printRef = useRef();
   const handlePrint = useReactToPrint({ content: () => printRef.current });
@@ -145,7 +150,7 @@ export default function SupplierReportPage() {
           breadcrumbs={[{ label: 'Reports' }, { label: 'Supplier Report' }]}
           actions={generated ? (
             <>
-              <Button variant="outlined" size="small" startIcon={<PrintIcon />} onClick={handlePrint}>Print / PDF</Button>
+              <Button variant="contained" size="small" startIcon={<PrintIcon />} onClick={() => setPrintPreviewOpen(true)} sx={{ bgcolor: '#e65100' }}>Print Preview</Button>
               <Button variant="outlined" size="small" startIcon={<FileDownloadIcon />} onClick={handleExportExcel}>Excel</Button>
             </>
           ) : null}
@@ -297,6 +302,84 @@ export default function SupplierReportPage() {
                 preparedBy={user?.username || user?.customerName || user?.name || ''}
               />
             </Box>
+
+            {/* Print Preview Dialog */}
+            <Dialog open={printPreviewOpen} onClose={() => setPrintPreviewOpen(false)} maxWidth="md" fullWidth>
+              <DialogTitle sx={{ bgcolor: '#e65100', color: 'white', fontWeight: 700 }}>Supplier Report Preview</DialogTitle>
+              <DialogContent dividers sx={{ maxHeight: '70vh', overflow: 'auto', bgcolor: '#f9f9f9', p: 3 }}>
+                <Box sx={{ bgcolor: 'white', p: 3, borderRadius: 1, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                  {/* Company Header */}
+                  <Box sx={{ textAlign: 'center', mb: 3 }}>
+                    {company?.logo && <Box component="img" src={company.logo} sx={{ maxHeight: 50, mb: 1 }} />}
+                    <Typography variant="h6" fontWeight={700}>{company?.name || 'Company Name'}</Typography>
+                    <Typography variant="caption" color="text.secondary">{company?.address || ''}</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">TIN: {company?.tinNo || ''}</Typography>
+                  </Box>
+                  <Divider sx={{ mb: 2 }} />
+
+                  {/* Report Title */}
+                  <Typography variant="h6" fontWeight={700} sx={{ textAlign: 'center', mb: 0.5 }}>SUPPLIER REPORT</Typography>
+                  <Typography variant="caption" sx={{ textAlign: 'center', display: 'block', mb: 2 }}>
+                    {dateFrom?.format('MMM DD, YYYY')} to {dateTo?.format('MMM DD, YYYY')}
+                  </Typography>
+                  
+                  {supplierId && (
+                    <Typography variant="caption" sx={{ textAlign: 'center', display: 'block', mb: 2, color: 'text.secondary' }}>
+                      Supplier: {suppliers.find((s) => (s._id || s.id) === supplierId)?.name || 'All'}
+                    </Typography>
+                  )}
+
+                  {/* Data Table */}
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={{ bgcolor: '#ecf0f1' }}>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.85rem' }}>Date</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.85rem' }}>Invoice No</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.85rem' }}>Supplier</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>Subtotal</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>VAT</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.85rem' }}>Total</TableCell>
+                          <TableCell sx={{ fontWeight: 700, fontSize: '0.85rem' }}>Status</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {reportData?.map((row, idx) => (
+                          <TableRow key={idx} sx={{ bgcolor: idx % 2 === 0 ? 'white' : '#f8f9fa' }}>
+                            <TableCell sx={{ fontSize: '0.85rem' }}>{dayjs(row.createdAt).format('MMM DD, YYYY')}</TableCell>
+                            <TableCell sx={{ fontSize: '0.85rem' }}>{row.invoiceNo || '—'}</TableCell>
+                            <TableCell sx={{ fontSize: '0.85rem' }}>{typeof row.supplier === 'string' ? row.supplier : row.supplier?.name || '—'}</TableCell>
+                            <TableCell align="right" sx={{ fontSize: '0.85rem' }}>₱{fmt(row.subtotal)}</TableCell>
+                            <TableCell align="right" sx={{ fontSize: '0.85rem' }}>₱{fmt(row.vatAmount)}</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>₱{fmt(row.totalAmount)}</TableCell>
+                            <TableCell sx={{ fontSize: '0.85rem' }}>
+                              <Chip label={row.status} size="small" color={STATUS_COLORS[row.status] || 'default'} />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  {/* Totals Box */}
+                  <Box sx={{ bgcolor: '#e3f2fd', p: 2, mt: 2, borderRadius: 1, textAlign: 'right' }}>
+                    <Typography variant="body2" sx={{ mb: 1 }}>Subtotal: ₱{fmt(summaryTotals?.subtotal)}</Typography>
+                    <Typography variant="body2" sx={{ mb: 1 }}>VAT (12%): ₱{fmt(summaryTotals?.vat)}</Typography>
+                    <Typography variant="h6" fontWeight={700} sx={{ color: '#e65100' }}>Total: ₱{fmt(summaryTotals?.total)}</Typography>
+                  </Box>
+
+                  {/* Footer */}
+                  <Box sx={{ mt: 3, pt: 2, borderTop: '1px solid #ddd', fontSize: '0.75rem', color: 'text.secondary' }}>
+                    <Typography variant="caption">Prepared By: {user?.username || user?.customerName || user?.name || 'System'}</Typography>
+                    <Typography variant="caption" display="block">Generated: {dayjs().format('MMM DD, YYYY HH:mm')}</Typography>
+                  </Box>
+                </Box>
+              </DialogContent>
+              <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+                <Button onClick={() => setPrintPreviewOpen(false)} variant="outlined">Close</Button>
+                <Button onClick={handlePrint} variant="contained" color="primary" startIcon={<PrintIcon />}>Print / PDF</Button>
+              </DialogActions>
+            </Dialog>
           </>
         )}
       </MainLayout>

@@ -25,7 +25,18 @@ const sanitize = (user) => ({
 // GET /api/users — list all (admin only)
 router.get('/', protect, adminOnly, async (req, res) => {
   try {
-    const { page = 1, limit = 20, search = '' } = req.query;
+    // Input validation
+    let { page = 1, limit = 20, search = '' } = req.query;
+    
+    page = Math.max(1, Math.min(Number(page) || 1, 10000));
+    limit = Math.max(1, Math.min(Number(limit) || 20, 100));
+    
+    // Sanitize search parameter - remove special characters that could cause issues
+    search = String(search).trim().substring(0, 100);
+    if (!/^[a-zA-Z0-9@._\s-]*$/.test(search)) {
+      search = '';
+    }
+    
     const query = search
       ? {
           $or: [
@@ -35,6 +46,7 @@ router.get('/', protect, adminOnly, async (req, res) => {
           ],
         }
       : {};
+    
     const total = await User.countDocuments(query);
     const users = await User.find(query)
       .populate('assignedBranch', 'name code')
@@ -42,6 +54,7 @@ router.get('/', protect, adminOnly, async (req, res) => {
       .sort({ createdAt: -1 })
       .skip((Number(page) - 1) * Number(limit))
       .limit(Number(limit));
+    
     res.json({ users, total, page: Number(page), pages: Math.ceil(total / limit) });
   } catch (err) {
     res.status(500).json({ message: err.message });

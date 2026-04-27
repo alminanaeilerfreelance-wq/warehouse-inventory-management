@@ -120,15 +120,45 @@ export default function UsersPage() {
 
   const setF = (k) => (e) => setFormData((p) => ({ ...p, [k]: e.target.value }));
 
+  const validateEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  const validatePassword = (password) => {
+    return password.length >= 6;
+  };
+
   const handleFormSubmit = () => {
-    if (!formData.username || !formData.email) {
-      enqueueSnackbar('Username and email are required', { variant: 'warning' });
+    // Validate username
+    if (!formData.username || formData.username.trim().length < 3) {
+      enqueueSnackbar('Username is required and must be at least 3 characters', { variant: 'warning' });
       return;
     }
+
+    // Validate email
+    if (!formData.email || !validateEmail(formData.email)) {
+      enqueueSnackbar('Please enter a valid email address', { variant: 'warning' });
+      return;
+    }
+
+    // Validate password for new users
     if (!editId && !formData.password) {
       enqueueSnackbar('Password is required for new users', { variant: 'warning' });
       return;
     }
+
+    // Validate password strength if provided
+    if (formData.password && !validatePassword(formData.password)) {
+      enqueueSnackbar('Password must be at least 6 characters long', { variant: 'warning' });
+      return;
+    }
+
+    // Validate full name for new users
+    if (!editId && !formData.customerName) {
+      enqueueSnackbar('Full Name is required', { variant: 'warning' });
+      return;
+    }
+
     setAdminOpen(true);
   };
 

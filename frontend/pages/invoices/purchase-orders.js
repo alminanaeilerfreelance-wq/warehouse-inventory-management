@@ -66,6 +66,7 @@ const STATUS_COLORS = {
 };
 
 const EMPTY_FORM = {
+  invoiceNo: '',
   supplierId: '',
   warehouseId: '',
   employeeId: '',
@@ -160,6 +161,7 @@ export default function PurchaseOrdersPage() {
   const openAdd = () => { setFormData(EMPTY_FORM); setEditId(null); setFormOpen(true); };
   const openEdit = (row) => {
     setFormData({
+      invoiceNo: row.invoiceNo || '',
       supplierId: row.supplierId || row.supplier?._id || '',
       warehouseId: row.warehouseId || row.warehouse?._id || '',
       employeeId: row.employeeId || row.employee?._id || '',
@@ -234,7 +236,52 @@ export default function PurchaseOrdersPage() {
   const grandTotal = formData.vatType === 'exclusive' ? subtotal + vatAmount : subtotal;
 
   const handleFormSubmit = () => {
-    if (!formData.supplierId) { enqueueSnackbar('Supplier is required', { variant: 'warning' }); return; }
+    // Validate invoice number
+    if (!formData.invoiceNo || formData.invoiceNo.trim().length === 0) {
+      enqueueSnackbar('Invoice number is required', { variant: 'warning' });
+      return;
+    }
+
+    // Validate supplier selection
+    if (!formData.supplierId) {
+      enqueueSnackbar('Supplier is required', { variant: 'warning' });
+      return;
+    }
+
+    // Validate warehouse selection
+    if (!formData.warehouseId) {
+      enqueueSnackbar('Warehouse is required', { variant: 'warning' });
+      return;
+    }
+
+    // Validate employee selection
+    if (!formData.employeeId) {
+      enqueueSnackbar('Employee is required', { variant: 'warning' });
+      return;
+    }
+
+    // Validate at least one item in order
+    if (!formData.items || formData.items.length === 0) {
+      enqueueSnackbar('Purchase order must have at least one item', { variant: 'warning' });
+      return;
+    }
+
+    // Validate all items have required fields
+    for (let item of formData.items) {
+      if (!item.productNameId || !item.unitPrice || !item.quantity) {
+        enqueueSnackbar('All items must have product, unit price, and quantity', { variant: 'warning' });
+        return;
+      }
+      if (isNaN(item.unitPrice) || Number(item.unitPrice) <= 0) {
+        enqueueSnackbar('Unit price must be a valid positive number', { variant: 'warning' });
+        return;
+      }
+      if (isNaN(item.quantity) || Number(item.quantity) <= 0) {
+        enqueueSnackbar('Quantity must be a valid positive number', { variant: 'warning' });
+        return;
+      }
+    }
+
     setPendingAction('save');
     setAdminOpen(true);
   };
@@ -445,6 +492,17 @@ export default function PurchaseOrdersPage() {
         maxWidth="lg"
       >
         <Grid container spacing={2} mt={0.5}>
+          <Grid item xs={12} sm={4}>
+            <TextField
+              label="Invoice No (Receipt from Supplier)"
+              fullWidth
+              size="small"
+              value={formData.invoiceNo}
+              onChange={setF('invoiceNo')}
+              placeholder="e.g., INV-2024-001"
+              helperText="Enter the invoice/receipt number from supplier"
+            />
+          </Grid>
           <Grid item xs={12} sm={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Supplier</InputLabel>
