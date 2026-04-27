@@ -31,6 +31,14 @@ import SearchIcon from '@mui/icons-material/Search';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import AssignmentReturnIcon from '@mui/icons-material/AssignmentReturn';
+import PrintIcon from '@mui/icons-material/Print';
+import DownloadIcon from '@mui/icons-material/Download';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import { QRCodeCanvas } from 'qrcode.react';
 
 import MainLayout from '../../components/Layout/MainLayout';
 import DataTable from '../../components/Common/DataTable';
@@ -94,18 +102,27 @@ export default function ReturnOrdersPage() {
   const [adminOpen, setAdminOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [actionTargetId, setActionTargetId] = useState(null);
+  
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewPO, setViewPO] = useState(null);
+  const [qrOpen, setQrOpen] = useState(false);
+  const [qrData, setQrData] = useState('');
+  const [companyDetails, setCompanyDetails] = useState(null);
 
   const fetchLookups = useCallback(async () => {
     try {
-      const [sRes, wRes, eRes] = await Promise.all([
+      const [sRes, wRes, eRes, cRes] = await Promise.all([
         api.get('/suppliers').catch(() => ({ data: [] })),
         api.get('/warehouses').catch(() => ({ data: [] })),
         api.get('/employees').catch(() => ({ data: [] })),
+        api.get('/settings').catch(() => ({ data: {} })),
       ]);
       const norm = (r) => { const d = r.data?.data || r.data; return Array.isArray(d) ? d : d?.items || []; };
       setSuppliers(norm(sRes));
       setWarehouses(norm(wRes));
       setEmployees(norm(eRes));
+      const settings = cRes.data?.data || cRes.data || {};
+      setCompanyDetails(settings.company || {});
     } catch { /* silently fail */ }
   }, []);
 
@@ -143,12 +160,23 @@ export default function ReturnOrdersPage() {
       warehouseId: row.warehouseId || row.warehouse?._id || '',
       employeeId: row.employeeId || row.employee?._id || '',
       notes: row.notes || '',
-      items: (row.items || []).map((it) => ({
-        inventoryId: it.inventoryId || it.inventory?._id || '',
-        productName: it.productName || it.product?.name || '',
-        qty: it.qty || 1,
-        price: it.price || 0,
-      })),
+      items: (row.items || []).map((it) => {
+        // Extract product name safely - handle both string and object cases
+        let productName = '';
+        if (typeof it.productName === 'string') {
+          productName = it.productName;
+        } else if (it.product?.productName?.name) {
+          productName = it.product.productName.name;
+        } else if (it.product?.name) {
+          productName = it.product.name;
+        }
+        return {
+          inventoryId: it.inventoryId || it.product?._id || it.inventory?._id || '',
+          productName: productName || 'Unknown',
+          qty: it.qty || 1,
+          price: it.price || 0,
+        };
+      }),
       vatType: row.vatType || 'exclusive',
     });
     setEditId(row._id || row.id);
@@ -159,6 +187,16 @@ export default function ReturnOrdersPage() {
 
   const addToCart = (inv) => {
     const id = inv._id || inv.id;
+    let productNameStr = '';
+    if (typeof inv.productName === 'string') {
+      productNameStr = inv.productName;
+    } else if (inv.productName?.name) {
+      productNameStr = inv.productName.name;
+    } else if (inv.product?.name) {
+      productNameStr = inv.product.name;
+    } else {
+      productNameStr = 'Unknown';
+    }
     setFormData((p) => {
       if (p.items.find((it) => it.inventoryId === id)) return p;
       return {
@@ -167,7 +205,7 @@ export default function ReturnOrdersPage() {
           ...p.items,
           {
             inventoryId: id,
-            productName: inv.product?.name || inv.productName || 'Unknown',
+            productName: productNameStr,
             qty: 1,
             price: inv.cost || 0,
           },
@@ -253,12 +291,28 @@ export default function ReturnOrdersPage() {
     }
   };
 
+  const handleViewPO = (row) => {
+    setViewPO(row);
+    setViewOpen(true);
+  };
+
+  const handleQRPO = (row) => {
+    const qrValue = JSON.stringify({
+      invoiceNo: row.invoiceNo || row.invoice_no,
+      supplier: row.supplier?.name || row.supplierName,
+      total: row.totalAmount || row.total,
+      date: row.createdAt,
+    });
+    setQrData(qrValue);
+    setQrOpen(true);
+  };
+
   const columns = [
     { field: 'invoiceNo', headerName: 'Invoice No', renderCell: ({ row }) => row.invoiceNo || row.invoice_no || '—' },
     { field: 'supplier', headerName: 'Supplier', renderCell: ({ row }) => row.supplier?.name || row.supplierName || '—' },
     { field: 'warehouse', headerName: 'Warehouse', renderCell: ({ row }) => row.warehouse?.name || row.warehouseName || '—' },
     { field: 'employee', headerName: 'Employee', renderCell: ({ row }) => row.employee?.name || row.employeeName || '—' },
-    { field: 'total', headerName: 'Total', renderCell: ({ row }) => fmt(row.total) },
+    { field: 'totalAmount', headerName: 'Total', renderCell: ({ row }) => fmt(row.totalAmount || row.total || 0) },
     {
       field: 'status',
       headerName: 'Status',
@@ -284,6 +338,16 @@ export default function ReturnOrdersPage() {
       headerName: 'Actions',
       renderCell: ({ row }) => (
         <Stack direction="row" spacing={0.5}>
+          <Tooltip title="View & Print">
+            <IconButton size="small" color="info" onClick={() => handleViewPO(row)}>
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="View QR Code">
+            <IconButton size="small" color="primary" onClick={() => handleQRPO(row)}>
+              <DownloadIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <Tooltip title="Edit">
             <IconButton size="small" color="warning" onClick={() => openEdit(row)}>
               <EditIcon fontSize="small" />
@@ -424,17 +488,29 @@ export default function ReturnOrdersPage() {
               sx={{ mb: 1, minWidth: 260 }}
             />
             <Box sx={{ maxHeight: 140, overflowY: 'auto', mb: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}>
-              {inventoryItems.map((inv) => (
-                <Box
-                  key={inv._id || inv.id}
-                  sx={{ p: 0.75, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, borderRadius: 0.5 }}
-                  onClick={() => addToCart(inv)}
-                >
-                  <Typography variant="body2">
-                    {inv.product?.name || inv.productName || 'Unknown'} — Cost: {fmt(inv.cost)} — Qty: {inv.quantity}
-                  </Typography>
-                </Box>
-              ))}
+              {inventoryItems.map((inv) => {
+                let productNameDisplay = '';
+                if (typeof inv.productName === 'string') {
+                  productNameDisplay = inv.productName;
+                } else if (inv.productName?.name) {
+                  productNameDisplay = inv.productName.name;
+                } else if (inv.product?.name) {
+                  productNameDisplay = inv.product.name;
+                } else {
+                  productNameDisplay = 'Unknown';
+                }
+                return (
+                  <Box
+                    key={inv._id || inv.id}
+                    sx={{ p: 0.75, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, borderRadius: 0.5 }}
+                    onClick={() => addToCart(inv)}
+                  >
+                    <Typography variant="body2">
+                      {productNameDisplay} — Cost: {fmt(inv.cost)} — Qty: {inv.quantity}
+                    </Typography>
+                  </Box>
+                );
+              })}
             </Box>
 
             <TableContainer component={Paper} variant="outlined">
@@ -456,27 +532,31 @@ export default function ReturnOrdersPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    formData.items.map((it, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell>{it.productName}</TableCell>
-                        <TableCell>
-                          <TextField size="small" type="number" value={it.qty}
-                            onChange={(e) => updateItem(idx, 'qty', Number(e.target.value))}
-                            inputProps={{ min: 1, style: { width: 60 } }} />
-                        </TableCell>
-                        <TableCell>
-                          <TextField size="small" type="number" value={it.price}
-                            onChange={(e) => updateItem(idx, 'price', Number(e.target.value))}
-                            inputProps={{ min: 0, style: { width: 80 } }} />
-                        </TableCell>
-                        <TableCell>{fmt(it.price * it.qty)}</TableCell>
-                        <TableCell>
-                          <IconButton size="small" color="error" onClick={() => removeItem(idx)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    formData.items.map((it, idx) => {
+                      // Ensure productName is a string
+                      const productName = typeof it.productName === 'string' ? it.productName : 'Unknown';
+                      return (
+                        <TableRow key={idx}>
+                          <TableCell>{productName}</TableCell>
+                          <TableCell>
+                            <TextField size="small" type="number" value={it.qty}
+                              onChange={(e) => updateItem(idx, 'qty', Number(e.target.value))}
+                              inputProps={{ min: 1, style: { width: 60 } }} />
+                          </TableCell>
+                          <TableCell>
+                            <TextField size="small" type="number" value={it.price}
+                              onChange={(e) => updateItem(idx, 'price', Number(e.target.value))}
+                              inputProps={{ min: 0, style: { width: 80 } }} />
+                          </TableCell>
+                          <TableCell>{fmt(it.price * it.qty)}</TableCell>
+                          <TableCell>
+                            <IconButton size="small" color="error" onClick={() => removeItem(idx)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
@@ -513,6 +593,222 @@ export default function ReturnOrdersPage() {
           </Grid>
         </Grid>
       </FormDialog>
+
+      <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ bgcolor: 'primary.main', color: 'white', fontWeight: 700 }}>Return Order Document</DialogTitle>
+        <DialogContent dividers sx={{ maxHeight: '70vh', overflow: 'auto', bgcolor: '#f9f9f9', p: 3 }}>
+          {viewPO && (
+            <Box sx={{ bgcolor: 'white', p: 3, borderRadius: 1, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+              {/* Company Header */}
+              <Box sx={{ textAlign: 'center', mb: 3, pb: 2, borderBottom: '2px solid #2c3e50' }}>
+                <Typography variant="h6" fontWeight={700} sx={{ color: '#2c3e50', mb: 0.5 }}>
+                  {companyDetails?.name || 'Company Name'}
+                </Typography>
+                {companyDetails?.slogan && (
+                  <Typography variant="caption" sx={{ color: '#7f8c8d', fontStyle: 'italic', display: 'block', mb: 1 }}>
+                    {companyDetails.slogan}
+                  </Typography>
+                )}
+                <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                  {companyDetails?.address || 'Address'}
+                </Typography>
+                {companyDetails?.contact && (
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                    Contact: {companyDetails.contact}
+                  </Typography>
+                )}
+                {companyDetails?.tinNo && (
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary' }}>
+                    TIN: {companyDetails.tinNo}
+                  </Typography>
+                )}
+              </Box>
+
+              {/* Document Title */}
+              <Box sx={{ textAlign: 'center', mb: 3, pb: 2, borderBottom: '2px solid #ecf0f1' }}>
+                <Typography variant="h5" fontWeight={700} sx={{ color: '#2c3e50', mb: 1 }}>
+                  RETURN ORDER
+                </Typography>
+                <Stack direction="row" justifyContent="center" spacing={2}>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Receipt No.</Typography>
+                    <Typography variant="h6" sx={{ color: '#e74c3c', fontWeight: 600 }}>
+                      {viewPO.invoiceNo || viewPO.invoice_no}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>Date</Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {viewPO.createdAt ? dayjs(viewPO.createdAt).format('MMM DD, YYYY') : '—'}
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Box>
+
+              {/* Two Column Layout */}
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#34495e', mb: 1 }}>FROM (SUPPLIER):</Typography>
+                  <Box sx={{ pl: 2, borderLeft: '3px solid #3498db' }}>
+                    <Typography variant="body2" fontWeight={600}>{viewPO.supplier?.name || viewPO.supplierName || '—'}</Typography>
+                    {viewPO.supplier?.contact && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {viewPO.supplier.contact}
+                      </Typography>
+                    )}
+                    {viewPO.supplier?.address && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {viewPO.supplier.address}
+                      </Typography>
+                    )}
+                    {viewPO.supplier?.tinNo && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        TIN: {viewPO.supplier.tinNo}
+                      </Typography>
+                    )}
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#34495e', mb: 1 }}>TO (WAREHOUSE):</Typography>
+                  <Box sx={{ pl: 2, borderLeft: '3px solid #27ae60' }}>
+                    <Typography variant="body2" fontWeight={600}>{viewPO.warehouse?.name || viewPO.warehouseName || '—'}</Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      Receiving Location
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
+
+              {/* Employee & Date */}
+              <Grid container spacing={3} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#34495e', mb: 1 }}>PROCESSED BY:</Typography>
+                  <Typography variant="body2">{viewPO.employee?.name || viewPO.employeeName || '—'}</Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#34495e', mb: 1 }}>STATUS:</Typography>
+                  <Chip 
+                    label={viewPO.status?.toUpperCase() || 'PENDING'}
+                    color={viewPO.status === 'approved' ? 'success' : viewPO.status === 'rejected' ? 'error' : 'warning'}
+                    size="small"
+                    variant="outlined"
+                  />
+                </Grid>
+              </Grid>
+
+              <Divider sx={{ my: 2 }} />
+
+              {/* Items Table */}
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#2c3e50', mb: 2 }}>RETURNED ITEMS:</Typography>
+                <Table size="small" sx={{ mb: 2 }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#ecf0f1' }}>
+                      <TableCell sx={{ fontWeight: 700, color: '#2c3e50' }}>Product</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50' }}>Qty</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50' }}>Unit Price</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: '#2c3e50' }}>Total</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {viewPO.items && viewPO.items.length > 0 ? viewPO.items.map((item, idx) => {
+                      let productName = '';
+                      if (typeof item.productName === 'string') {
+                        productName = item.productName;
+                      } else if (item.product?.productName?.name) {
+                        productName = item.product.productName.name;
+                      } else if (item.product?.name) {
+                        productName = item.product.name;
+                      }
+                      const itemQty = item.qty || item.quantity || 0;
+                      const itemPrice = item.price || 0;
+                      const itemTotal = itemQty * itemPrice;
+                      return (
+                        <TableRow key={idx} sx={{ '&:nth-of-type(even)': { bgcolor: '#f8f9fa' } }}>
+                          <TableCell sx={{ py: 1.5 }}>{productName || '—'}</TableCell>
+                          <TableCell align="right" sx={{ py: 1.5, fontWeight: 600 }}>{itemQty}</TableCell>
+                          <TableCell align="right" sx={{ py: 1.5 }}>₱{fmt(itemPrice)}</TableCell>
+                          <TableCell align="right" sx={{ py: 1.5, fontWeight: 600 }}>₱{fmt(itemTotal)}</TableCell>
+                        </TableRow>
+                      );
+                    }) : (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center" sx={{ py: 2, color: 'text.secondary' }}>No items</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Box>
+
+              {/* Totals */}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+                <Box sx={{ width: '100%', maxWidth: 300, p: 2, bgcolor: '#ecf0f1', borderRadius: 1 }}>
+                  <Stack spacing={1}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">Subtotal:</Typography>
+                      <Typography variant="body2">₱{fmt(viewPO.subtotal || 0)}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">VAT (12%):</Typography>
+                      <Typography variant="body2">₱{fmt(viewPO.vatAmount || 0)}</Typography>
+                    </Stack>
+                    <Divider />
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="h6" fontWeight={700} sx={{ color: '#e74c3c' }}>Total:</Typography>
+                      <Typography variant="h6" fontWeight={700} sx={{ color: '#e74c3c' }}>₱{fmt(viewPO.totalAmount || viewPO.total || 0)}</Typography>
+                    </Stack>
+                  </Stack>
+                </Box>
+              </Box>
+
+              {/* QR Code */}
+              <Box sx={{ display: 'flex', justifyContent: 'center', p: 2, bgcolor: '#f0f0f0', borderRadius: 1 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <QRCodeCanvas 
+                    value={JSON.stringify({
+                      invoiceNo: viewPO.invoiceNo || viewPO.invoice_no,
+                      supplier: viewPO.supplier?.name || viewPO.supplierName,
+                      total: viewPO.totalAmount || viewPO.total,
+                    })}
+                    size={120}
+                    level="H"
+                    includeMargin={true}
+                  />
+                  <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>Return Order QR Code</Typography>
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: '#f5f5f5' }}>
+          <Button onClick={() => setViewOpen(false)} variant="outlined">Cancel</Button>
+          <Button 
+            onClick={() => window.print()} 
+            variant="contained" 
+            color="primary"
+            startIcon={<PrintIcon />}
+          >
+            Print
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={qrOpen} onClose={() => setQrOpen(false)} maxWidth="xs">
+        <DialogTitle>QR Code</DialogTitle>
+        <DialogContent sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+          {qrData && (
+            <QRCodeCanvas 
+              value={qrData}
+              size={250}
+              level="H"
+              includeMargin={true}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQrOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <AdminConfirmDialog
         open={adminOpen}

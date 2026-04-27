@@ -175,8 +175,10 @@ router.put('/:id/approve', protect, adminOnly, async (req, res) => {
       const qty = Number(item.qty) || 0;
 
       if (po.type === 'purchase') {
+        // Incoming items from supplier - add to inventory
         inventoryDoc.quantity = (inventoryDoc.quantity || 0) + qty;
       } else if (po.type === 'return') {
+        // Items returned to supplier - decrement from inventory
         inventoryDoc.quantity = Math.max(0, (inventoryDoc.quantity || 0) - qty);
       }
 

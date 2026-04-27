@@ -379,6 +379,7 @@ export default function PaymentsPage() {
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ bgcolor: 'grey.100' }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Invoice No</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Amount</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Method</TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Reference</TableCell>
@@ -390,13 +391,14 @@ export default function PaymentsPage() {
                   <TableBody>
                     {payments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                           <Typography variant="body2" color="text.secondary">No payments recorded</Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
                       payments.map((p, idx) => (
                         <TableRow key={p._id || p.id || idx} hover>
+                          <TableCell>{p.invoice?.invoiceNo || p.invoiceNo || p.invoice?.number || '—'}</TableCell>
                           <TableCell sx={{ fontWeight: 700, color: 'success.main' }}>
                             ₱{fmtCurrency(p.amount)}
                           </TableCell>
