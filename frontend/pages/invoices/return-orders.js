@@ -712,14 +712,30 @@ export default function ReturnOrdersPage() {
                   </TableHead>
                   <TableBody>
                     {viewPO.items && viewPO.items.length > 0 ? viewPO.items.map((item, idx) => {
+                      // Extract product name from multiple possible sources
                       let productName = '';
-                      if (typeof item.productName === 'string') {
+                      
+                      // First, try the stored productName field (direct string on item)
+                      if (typeof item.productName === 'string' && item.productName.trim()) {
                         productName = item.productName;
-                      } else if (item.product?.productName?.name) {
-                        productName = item.product.productName.name;
-                      } else if (item.product?.name) {
-                        productName = item.product.name;
                       }
+                      
+                      // If not found, try to extract from populated product object (Inventory)
+                      if (!productName && item.product) {
+                        // Try nested productName.name (ProductName object nested in Inventory)
+                        if (item.product.productName && typeof item.product.productName.name === 'string') {
+                          productName = item.product.productName.name;
+                        }
+                        // Try direct product.name field
+                        else if (typeof item.product.name === 'string') {
+                          productName = item.product.name;
+                        }
+                        // Try sku as fallback
+                        else if (item.product.sku) {
+                          productName = item.product.sku;
+                        }
+                      }
+                      
                       const itemQty = item.qty || item.quantity || 0;
                       const itemPrice = item.price || 0;
                       const itemTotal = itemQty * itemPrice;

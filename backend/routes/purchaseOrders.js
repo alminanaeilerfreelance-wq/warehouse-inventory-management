@@ -11,7 +11,7 @@ const populateOptions = [
   { path: 'supplier' },
   { path: 'warehouse' },
   { path: 'employee' },
-  { path: 'items.product' },
+  { path: 'items.product', populate: { path: 'productName' } },
   { path: 'createdBy', select: 'username customerName email' },
   { path: 'approvedBy', select: 'username customerName email' },
 ];
@@ -110,7 +110,10 @@ router.post('/', protect, async (req, res) => {
 
     // Calculate subtotal and totalAmount from items
     const processedItems = items.map((item) => ({
-      ...item,
+      product: item.inventoryId || item.product,
+      productName: item.productName || '',
+      qty: Number(item.qty) || 0,
+      price: Number(item.price) || 0,
       total: (Number(item.qty) || 0) * (Number(item.price) || 0),
     }));
 

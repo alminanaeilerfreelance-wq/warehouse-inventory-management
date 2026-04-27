@@ -64,8 +64,8 @@ export default function FormDialog({
           bgcolor: '#fafafa',
           borderBottom: '1px solid',
           borderColor: 'divider',
+          '& .MuiTypography-root': { m: 0 },
         }}
-        disableTypography
       >
         <Box>
           <Typography variant="subtitle1" fontWeight={700} color="text.primary">

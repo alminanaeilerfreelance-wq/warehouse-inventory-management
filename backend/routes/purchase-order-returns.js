@@ -44,7 +44,7 @@ router.get('/', protect, async (req, res) => {
       .populate('supplier', 'name contact')
       .populate('employee', 'name')
       .populate('warehouse', 'name')
-      .populate('items.product', 'name sku')
+      .populate('items.product')
       .populate('createdBy', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -86,9 +86,20 @@ router.post('/', protect, async (req, res) => {
     let subtotal = 0;
     let totalQty = 0;
     
-    for (const item of items) {
+    // Process items - map frontend field names to schema field names
+    const processedItems = items.map((item) => ({
+      product: item.inventoryId || item.product,
+      productName: item.productName || '',
+      quantity: Number(item.qty) || Number(item.quantity) || 0,
+      price: Number(item.price) || 0,
+      discount: Number(item.discount) || 0,
+      discountType: item.discountType || 'percentage',
+      total: (Number(item.qty) || Number(item.quantity) || 0) * (Number(item.price) || 0),
+    }));
+
+    for (const item of processedItems) {
       const itemTotal = item.quantity * item.price;
-      const discountAmount = discountType === 'percentage' ? (itemTotal * item.discount / 100) : item.discount;
+      const discountAmount = item.discountType === 'percentage' ? (itemTotal * item.discount / 100) : item.discount;
       item.total = itemTotal - discountAmount;
       subtotal += item.total;
       totalQty += item.quantity;
@@ -109,7 +120,7 @@ router.post('/', protect, async (req, res) => {
       supplier,
       employee,
       warehouse,
-      items,
+      items: processedItems,
       subtotal,
       discount: discountAmount,
       discountType,
@@ -161,12 +172,23 @@ router.put('/:id', protect, async (req, res) => {
     if (!ret) return res.status(404).json({ message: 'Return not found' });
 
     if (items && items.length > 0) {
+      // Process items - map frontend field names to schema field names
+      const processedItems = items.map((item) => ({
+        product: item.inventoryId || item.product,
+        productName: item.productName || '',
+        quantity: Number(item.qty) || Number(item.quantity) || 0,
+        price: Number(item.price) || 0,
+        discount: Number(item.discount) || 0,
+        discountType: item.discountType || 'percentage',
+        total: (Number(item.qty) || Number(item.quantity) || 0) * (Number(item.price) || 0),
+      }));
+      
       let subtotal = 0;
       let totalQty = 0;
       
-      for (const item of items) {
+      for (const item of processedItems) {
         const itemTotal = item.quantity * item.price;
-        const discountAmount = discountType === 'percentage' ? (itemTotal * item.discount / 100) : item.discount;
+        const discountAmount = item.discountType === 'percentage' ? (itemTotal * item.discount / 100) : item.discount;
         item.total = itemTotal - discountAmount;
         subtotal += item.total;
         totalQty += item.quantity;
@@ -177,7 +199,7 @@ router.put('/:id', protect, async (req, res) => {
       const vatAmount = vatInclusive ? (afterDiscount * vat / (100 + vat)) : (afterDiscount * vat / 100);
       const total = vatInclusive ? afterDiscount : (afterDiscount + vatAmount);
 
-      ret.items = items;
+      ret.items = processedItems;
       ret.subtotal = subtotal;
       ret.discount = discountAmount;
       ret.discountType = discountType;

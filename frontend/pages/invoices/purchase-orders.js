@@ -268,16 +268,16 @@ export default function PurchaseOrdersPage() {
 
     // Validate all items have required fields
     for (let item of formData.items) {
-      if (!item.productNameId || !item.unitPrice || !item.quantity) {
-        enqueueSnackbar('All items must have product, unit price, and quantity', { variant: 'warning' });
+      if (!item.productName || !item.price || !item.qty) {
+        enqueueSnackbar('All items must have product, price, and quantity', { variant: 'warning' });
         return;
       }
-      if (isNaN(item.unitPrice) || Number(item.unitPrice) <= 0) {
-        enqueueSnackbar('Unit price must be a valid positive number', { variant: 'warning' });
+      if (isNaN(item.price) || Number(item.price) <= 0) {
+        enqueueSnackbar('Item price must be a valid positive number', { variant: 'warning' });
         return;
       }
-      if (isNaN(item.quantity) || Number(item.quantity) <= 0) {
-        enqueueSnackbar('Quantity must be a valid positive number', { variant: 'warning' });
+      if (isNaN(item.qty) || Number(item.qty) <= 0) {
+        enqueueSnackbar('Item quantity must be a valid positive number', { variant: 'warning' });
         return;
       }
     }
@@ -778,14 +778,30 @@ export default function PurchaseOrdersPage() {
                   </TableHead>
                   <TableBody>
                     {viewPO.items && viewPO.items.length > 0 ? viewPO.items.map((item, idx) => {
+                      // Extract product name from multiple possible sources
                       let productName = '';
-                      if (typeof item.productName === 'string') {
+                      
+                      // First, try the stored productName field
+                      if (typeof item.productName === 'string' && item.productName.trim()) {
                         productName = item.productName;
-                      } else if (item.product?.productName?.name) {
-                        productName = item.product.productName.name;
-                      } else if (item.product?.name) {
-                        productName = item.product.name;
                       }
+                      
+                      // If not found, try to extract from populated Inventory object
+                      if (!productName && item.product) {
+                        // Try ProductName reference
+                        if (item.product.productName?.name) {
+                          productName = item.product.productName.name;
+                        }
+                        // Try direct name field
+                        else if (item.product.name) {
+                          productName = item.product.name;
+                        }
+                        // Try description as fallback
+                        else if (item.product.description) {
+                          productName = item.product.description;
+                        }
+                      }
+                      
                       const itemQty = item.qty || item.quantity || 0;
                       const itemPrice = item.price || 0;
                       const itemTotal = itemQty * itemPrice;

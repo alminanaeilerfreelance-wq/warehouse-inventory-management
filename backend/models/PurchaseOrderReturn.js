@@ -28,6 +28,7 @@ const purchaseOrderReturnSchema = new mongoose.Schema(
     items: [
       {
         product: { type: mongoose.Schema.Types.ObjectId, ref: 'ProductName' },
+        productName: String,
         quantity: Number,
         price: Number,
         discount: Number,

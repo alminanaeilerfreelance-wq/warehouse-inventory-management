@@ -6,6 +6,10 @@ const purchaseOrderItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Inventory',
     },
+    productName: {
+      type: String,
+      trim: true,
+    },
     qty: {
       type: Number,
     },

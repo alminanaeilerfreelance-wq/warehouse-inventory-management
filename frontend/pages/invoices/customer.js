@@ -746,7 +746,7 @@ export default function CustomerInvoicesPage() {
         </FormDialog>
 
         {/* View Invoice Dialog */}
-        <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="md" fullWidth>
+        <Dialog open={viewOpen} onClose={() => setViewOpen(false)} maxWidth="lg" fullWidth PaperProps={{ sx: { maxHeight: '90vh' } }}>
           <DialogTitle>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography variant="h6">Invoice Details</Typography>
@@ -760,7 +760,7 @@ export default function CustomerInvoicesPage() {
               </Stack>
             </Stack>
           </DialogTitle>
-          <DialogContent>
+          <DialogContent dividers sx={{ maxHeight: 'calc(90vh - 120px)', overflow: 'auto', p: 2 }}>
             {viewInvoice && (
               <InvoicePrint ref={printRef} invoice={viewInvoice} company={company} qrValue={viewQR} />
             )}

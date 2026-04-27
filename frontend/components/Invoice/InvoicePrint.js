@@ -178,11 +178,11 @@ const InvoicePrint = forwardRef(function InvoicePrint({ invoice, company, qrValu
                 <TableCell sx={{ fontSize: 11 }}>
                   <Box>
                     <Typography variant="body2" sx={{ fontSize: 11, fontWeight: 600 }}>
-                      {item.productName || item.serviceName || item.product?.name || item.service?.name || '—'}
+                      {item.itemName || item.productName || item.serviceName || item.inventory?.product?.name || item.product?.name || item.service?.name || '—'}
                     </Typography>
-                    {(item.service?.description || item.description) && (
+                    {(item.service?.description || item.description || item.inventory?.product?.description) && (
                       <Typography variant="caption" sx={{ fontSize: 10, color: 'text.secondary' }}>
-                        {item.service?.description || item.description}
+                        {item.service?.description || item.description || item.inventory?.product?.description || ''}
                       </Typography>
                     )}
                   </Box>

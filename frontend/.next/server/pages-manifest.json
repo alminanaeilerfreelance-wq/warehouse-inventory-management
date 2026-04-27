@@ -2,8 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/invoices/purchase-orders": "pages/invoices/purchase-orders.js",
-  "/reports/services": "pages/reports/services.js",
-  "/reports/sales": "pages/reports/sales.js",
-  "/invoices/customer": "pages/invoices/customer.js"
+  "/invoices/return-orders": "pages/invoices/return-orders.js",
+  "/login": "pages/login.js",
+  "/dashboard": "pages/dashboard.js"
 }

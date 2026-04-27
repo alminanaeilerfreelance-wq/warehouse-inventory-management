@@ -19,25 +19,15 @@ self.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/invoices/customer": [
+    "/dashboard": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/invoices/customer.js"
+      "static/chunks/pages/dashboard.js"
     ],
-    "/invoices/purchase-orders": [
+    "/invoices/return-orders": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/invoices/purchase-orders.js"
-    ],
-    "/reports/sales": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/reports/sales.js"
-    ],
-    "/reports/services": [
-      "static/chunks/webpack.js",
-      "static/chunks/main.js",
-      "static/chunks/pages/reports/services.js"
+      "static/chunks/pages/invoices/return-orders.js"
     ]
   },
   "ampFirstPages": []
